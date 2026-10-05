@@ -1,0 +1,130 @@
+-- ============================================================
+-- ASIGNACIONES ESTE LAS HERAS — ACTUALIZACIÓN COMPLETA V2.1
+-- Pegar en: Supabase > SQL Editor > New query > Run
+-- Idempotente: se puede pegar más de una vez sin romper nada.
+-- ============================================================
+
+-- 1) PARTICIPANTES — campos nuevos + flags de aprobación
+alter table participantes add column if not exists edad integer;
+alter table participantes add column if not exists fecha_nacimiento date;
+alter table participantes add column if not exists telefono_fijo text;
+alter table participantes add column if not exists estado_civil text;
+alter table participantes add column if not exists conyuge_id uuid;
+alter table participantes add column if not exists clasificacion text
+  check (clasificacion in ('ANCIANO','PRECURSOR_REGULAR','PRECURSOR_ESPECIAL','SIERVO_MINISTERIAL') or clasificacion is null);
+alter table participantes add column if not exists retiro_donaciones_aprobado boolean default false;
+alter table participantes add column if not exists lector_atalaya_aprobado boolean default false;
+
+alter table participantes drop constraint if exists participantes_conyuge_id_fkey;
+alter table participantes
+  add constraint participantes_conyuge_id_fkey
+  foreign key (conyuge_id) references participantes(id)
+  on delete set null;
+
+-- 2) REUNIONES — campos nuevos
+alter table reuniones add column if not exists dia_reunion_entresemana text;
+alter table reuniones add column if not exists limpieza_grupo_entresemana text;
+alter table reuniones add column if not exists oracion_asignaciones text;
+alter table reuniones add column if not exists conferencia_nombre text;
+alter table reuniones add column if not exists limpieza_grupo_fin_semana text;
+alter table reuniones add column if not exists oracion_final_texto text;
+
+-- 3) ROLES NUEVOS (slots separados)
+insert into roles (slug, nombre, orden, generos_permitidos) values
+  ('acomodador_puerta',    'Acomodador de Puerta',                    11, array['HOMBRE']),
+  ('acomodador_auditorio', 'Acomodador de Auditorio',                 12, array['HOMBRE']),
+  ('microfonista_1',       'Micrófonista 1',                          13, array['HOMBRE']),
+  ('microfonista_2',       'Micrófonista 2',                          14, array['HOMBRE']),
+  ('retiro_donaciones',    'Retiro de Donaciones',                    15, array['HOMBRE']),
+  ('limpieza',             'Limpieza',                                16, array['HOMBRE']),
+  ('oracion_fin',          'Oración Final',                           17, array['HOMBRE']),
+  ('audio_video',          'Audio y Video',                           18, array['HOMBRE']),
+  ('plataforma',           'Plataforma',                              19, array['HOMBRE']),
+  ('lector_atalaya',       'Lector de Atalaya',                       20, array['HOMBRE'])
+on conflict (slug) do nothing;
+
+-- 4) TABLA DE ASIGNACIONES MECÁNICAS POR REUNIÓN
+create table if not exists reunion_asignaciones_mecanicas (
+  id uuid primary key default gen_random_uuid(),
+  reunion_id uuid not null references reuniones(id) on delete cascade unique,
+  -- ENTRE SEMANA
+  dia_entresemana text,
+  acomodador_puerta_id uuid references participantes(id) on delete set null,
+  acomodador_auditorio_id uuid references participantes(id) on delete set null,
+  microfonista_1_id uuid references participantes(id) on delete set null,
+  microfonista_2_id uuid references participantes(id) on delete set null,
+  audio_video_id uuid references participantes(id) on delete set null,
+  plataforma_id uuid references participantes(id) on delete set null,
+  retiro_donaciones_id uuid references participantes(id) on delete set null,
+  limpieza_grupo_entresemana text,
+  -- FIN DE SEMANA
+  dia_finsemana text,
+  presidente_fin_semana_id uuid references participantes(id) on delete set null,
+  oracion_asignaciones_id uuid references participantes(id) on delete set null,
+  oracion_asignaciones_texto text,
+  conferencia_nombre text,
+  conferencia_presenta_texto text,             -- se escribe a mano (no es local)
+  conductor_atalaya_id uuid references participantes(id) on delete set null,
+  lector_id uuid references participantes(id) on delete set null,
+  acomodador_puerta_fs_id uuid references participantes(id) on delete set null,
+  acomodador_auditorio_fs_id uuid references participantes(id) on delete set null,
+  microfonista_1_fs_id uuid references participantes(id) on delete set null,
+  microfonista_2_fs_id uuid references participantes(id) on delete set null,
+  audio_video_fs_id uuid references participantes(id) on delete set null,
+  plataforma_fs_id uuid references participantes(id) on delete set null,
+  retiro_donaciones_fs_id uuid references participantes(id) on delete set null,
+  limpieza_grupo_fin_semana text,
+  oracion_final_id uuid references participantes(id) on delete set null,
+  oracion_final_texto text,
+  notas text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists idx_ram_reunion on reunion_asignaciones_mecanicas(reunion_id);
+
+-- 5) COLUMNAS DE 2.º ASIGNADO DE RETIRO + TEXTO DE CONFERENCIA
+--    (por si la tabla ya existía sin estas columnas)
+alter table reunion_asignaciones_mecanicas
+  add column if not exists dia_finsemana text,
+  add column if not exists retiro_donaciones_1_id uuid references participantes(id) on delete set null,
+  add column if not exists retiro_donaciones_2_id uuid references participantes(id) on delete set null,
+  add column if not exists retiro_donaciones_1_fs_id uuid references participantes(id) on delete set null,
+  add column if not exists retiro_donaciones_2_fs_id uuid references participantes(id) on delete set null,
+  add column if not exists conferencia_presenta_texto text;
+
+-- 6) MIGRAR DATOS EXISTENTES (si cargaste algo con el slot único)
+update reunion_asignaciones_mecanicas
+   set retiro_donaciones_1_id = retiro_donaciones_id
+ where retiro_donaciones_id is not null and retiro_donaciones_1_id is null;
+
+update reunion_asignaciones_mecanicas
+   set retiro_donaciones_1_fs_id = retiro_donaciones_fs_id
+ where retiro_donaciones_fs_id is not null and retiro_donaciones_1_fs_id is null;
+
+-- 7) RLS (acceso anónimo, igual que el resto)
+alter table reunion_asignaciones_mecanicas enable row level security;
+do $$
+declare t text;
+begin
+  t := 'reunion_asignaciones_mecanicas';
+  execute format('drop policy if exists p_all on %I', t);
+  execute format('create policy p_all on %I for all using (true) with check (true)', t);
+end $$;
+
+-- 8) FUNCIÓN DE LIMPIEZA (también limpia lector_id)
+create or replace function vm_limpiar_asignaciones() returns trigger as $$
+begin
+  update reunion_partes
+     set participante_ids = array_remove(participante_ids, old.id),
+         lector_id        = case when lector_id = old.id then null else lector_id end
+   where old.id = any (participante_ids)
+      or lector_id = old.id;
+  return old;
+end;
+$$ language plpgsql;
+
+-- 9) TRIGGER updated_at PARA LA TABLA NUEVA
+drop trigger if exists trg_touch_ram on reunion_asignaciones_mecanicas;
+create trigger trg_touch_ram before update on reunion_asignaciones_mecanicas
+  for each row execute function vm_touch();
