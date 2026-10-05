@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { supabase } from "@/lib/supabase";
-import { buscarPorNombre, mesDelFormulario } from "@/lib/informes-servidor";
+import { buscarPorNombre, mesDelFormulario, traerPersonaPorId } from "@/lib/informes-servidor";
 import { esClaveMes, etiquetaMes, validarInforme } from "@/lib/informes";
 
 /** Freno simple: máximo 25 búsquedas por minuto y conexión. */
@@ -36,7 +36,8 @@ export async function GET(request: NextRequest) {
 
     let coincidencias;
     try {
-      coincidencias = await buscarPorNombre(buscar);
+      // solo los tildados como "Es publicador" llenan el informe
+      coincidencias = await buscarPorNombre(buscar, { soloPublicadores: true });
     } catch {
       return NextResponse.json(
         { error: "No pudimos buscar el nombre. Intentá en un momento." },
@@ -86,16 +87,19 @@ export async function POST(request: Request) {
     );
   }
 
-  const { data: persona } = await supabase
-    .from("participantes")
-    .select("id, nombre_completo, activo")
-    .eq("id", participante_id)
-    .maybeSingle();
+  const persona = await traerPersonaPorId(participante_id, "id, nombre_completo, activo");
 
   if (!persona || !persona.activo) {
     return NextResponse.json(
       { error: "Ese nombre no está en la congregación." },
       { status: 404 },
+    );
+  }
+
+  if (persona.es_publicador === false) {
+    return NextResponse.json(
+      { error: "Esa persona no está marcada como publicador: no informa. Comunicate con la Secretaría." },
+      { status: 403 },
     );
   }
 

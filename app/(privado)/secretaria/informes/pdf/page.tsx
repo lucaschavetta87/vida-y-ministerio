@@ -91,8 +91,12 @@ export default function PdfActividadAnual() {
     informes.forEach((i) => infPorMes.set(`${i.participante_id}|${i.mes}`, i));
     const marcasPorMes = new Set(marcas.map((m) => `${m.participante_id}|${m.mes}`));
     const ultimo = mesAnterior();
+    const conDatos = new Set<string>([...infPorMes.keys()].map((k) => k.split("|")[0]));
+    marcas.forEach((m) => conDatos.add(m.participante_id));
 
     return participantes
+      // los que no están tildados como "Es publicador" solo se ven si tienen datos
+      .filter((p) => p.es_publicador !== false || conDatos.has(p.id))
       .filter((p) => p.activo || infPorMes.size > 0)
       .filter((p) =>
         filtro ? p.nombre_completo.toLowerCase().includes(filtro.toLowerCase()) : true,
@@ -116,7 +120,10 @@ export default function PdfActividadAnual() {
           horas: propios.reduce((s, i) => s + (i.horas ?? 0), 0),
           estudios: propios.reduce((s, i) => s + (i.estudios_biblicos ?? 0), 0),
           informados: celdas.filter((c) => c.texto !== "—").length,
-          irregular: !infPorMes.has(`${p.id}|${ultimo}`) && !marcasPorMes.has(`${p.id}|${ultimo}`),
+          irregular:
+            p.es_publicador !== false &&
+            !infPorMes.has(`${p.id}|${ultimo}`) &&
+            !marcasPorMes.has(`${p.id}|${ultimo}`),
         };
       });
   }, [participantes, informes, marcas, anio, filtro]);
@@ -137,7 +144,7 @@ export default function PdfActividadAnual() {
           href="/secretaria"
           className="inline-flex items-center gap-1.5 text-sm font-semibold text-teal hover:underline"
         >
-          <ChevronLeft size={16} /> Secretaría (Informes)
+          <ChevronLeft size={16} /> Secretaría
         </Link>
         <div className="ml-auto flex flex-wrap items-center gap-2">
           <div className="relative">

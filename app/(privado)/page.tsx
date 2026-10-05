@@ -27,7 +27,7 @@ const tarjetas = [
   {
     href: "/secretaria",
     icono: ClipboardList,
-    titulo: "Secretaría (Informes)",
+    titulo: "Secretaría",
     texto: "Los informes de actividad del mes: precursores, auxiliares y publicadores, con las horas, los estudios y las observaciones de cada uno.",
   },
 ];

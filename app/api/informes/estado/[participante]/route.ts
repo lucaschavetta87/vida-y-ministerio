@@ -15,6 +15,13 @@ export async function GET(
     return NextResponse.json({ error: "Ese nombre no está en la congregación." }, { status: 404 });
   }
 
+  if (!estado.esPublicador) {
+    return NextResponse.json(
+      { error: "Esa persona no está marcada como publicador: no informa. Comunicate con la Secretaría." },
+      { status: 403 },
+    );
+  }
+
   const informe = estado.informe;
   return NextResponse.json({
     enviado: estado.enviado,

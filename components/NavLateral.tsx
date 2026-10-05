@@ -11,7 +11,7 @@ const enlaces = [
   { href: "/participantes", texto: "Participantes", Icono: Users },
   { href: "/reunion", texto: "Reunión", Icono: CalendarDays },
   { href: "/asignaciones-mecanicas", texto: "Asignaciones Mecánicas", Icono: Wrench },
-  { href: "/secretaria", texto: "Secretaría (Informes)", Icono: ClipboardList },
+  { href: "/secretaria", texto: "Secretaría", Icono: ClipboardList },
 ];
 
 function Marca({ compacta }: { compacta?: boolean }) {

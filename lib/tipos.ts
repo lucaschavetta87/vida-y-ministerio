@@ -24,6 +24,8 @@ export interface Participante {
   clasificacion: Clasificacion;
   retiro_donaciones_aprobado?: boolean;
   lector_atalaya_aprobado?: boolean;
+  /** Tildado = llena el informe de actividad y aparece en Secretaría. */
+  es_publicador?: boolean;
   activo: boolean;
   created_at?: string;
 }

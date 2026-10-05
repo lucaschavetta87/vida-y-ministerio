@@ -16,8 +16,10 @@ import {
   Users,
 } from "lucide-react";
 import EditorInforme from "@/components/EditorInforme";
+import SecretariaAsistencias from "@/components/SecretariaAsistencias";
 import { Boton, Campo, Etiqueta, Input, Panel, Select, Titulo } from "@/components/ui";
 import { supabase } from "@/lib/supabase";
+import { cn } from "@/lib/utils";
 import {
   etiquetaMes,
   mesAnterior,
@@ -98,6 +100,7 @@ export default function PaginaSecretaria() {
   const [errorCarga, setErrorCarga] = useState("");
   const [editando, setEditando] = useState<Editando | null>(null);
   const [filtro, setFiltro] = useState("");
+  const [pestana, setPestana] = useState<"informes" | "asistencias">("informes");
 
   const meses = useMemo(() => ultimosMeses(24), []);
 
@@ -152,8 +155,12 @@ export default function PaginaSecretaria() {
   );
 
   // sin informe y sin marca en verde = todavía no entregó
+  // (solo los tildados como "Es publicador" informan)
   const faltan = useMemo(
-    () => participantes.filter((p) => !porId.has(p.id) && !marcados.has(p.id)),
+    () =>
+      participantes.filter(
+        (p) => p.es_publicador !== false && !porId.has(p.id) && !marcados.has(p.id),
+      ),
     [participantes, porId, marcados],
   );
 
@@ -309,9 +316,50 @@ export default function PaginaSecretaria() {
     );
   };
 
+  const publicadores = useMemo(
+    () => participantes.filter((p) => p.es_publicador !== false).length,
+    [participantes],
+  );
+
+  const tabs = (
+    <div className="mb-6 flex gap-1 overflow-x-auto border-b border-linea">
+      {(
+        [
+          { valor: "informes", texto: "Informes", Icono: ClipboardList },
+          { valor: "asistencias", texto: "Asistencias a las reuniones", Icono: Users },
+        ] as const
+      ).map(({ valor, texto, Icono }) => (
+        <button
+          key={valor}
+          onClick={() => setPestana(valor)}
+          className={cn(
+            "flex cursor-pointer items-center gap-2 border-b-2 px-4 py-2.5 text-sm font-bold whitespace-nowrap transition-colors",
+            pestana === valor
+              ? "border-teal text-teal"
+              : "border-transparent text-suave hover:text-texto",
+          )}
+        >
+          <Icono size={15} />
+          {texto}
+        </button>
+      ))}
+    </div>
+  );
+
+  if (pestana === "asistencias") {
+    return (
+      <div>
+        <Titulo>Secretaría</Titulo>
+        {tabs}
+        <SecretariaAsistencias />
+      </div>
+    );
+  }
+
   return (
     <div>
-      <Titulo>Secretaría (Informes)</Titulo>
+      <Titulo>Secretaría</Titulo>
+      {tabs}
 
       <Panel className="mb-6 p-5">
         <div className="flex flex-wrap items-end gap-4">
@@ -335,7 +383,10 @@ export default function PaginaSecretaria() {
             <Etiqueta tono={faltan.length ? "rojo" : "verde"}>
               <Users size={12} /> Faltan: {faltan.length}
             </Etiqueta>
-            <Etiqueta tono="neutro">Total congregación: {participantes.length}</Etiqueta>
+            <Etiqueta tono="neutro">Publicadores: {publicadores}</Etiqueta>
+            {publicadores !== participantes.length && (
+              <Etiqueta tono="neutro">Congregación: {participantes.length}</Etiqueta>
+            )}
           </div>
           <p className="w-full text-xs text-suave sm:ml-auto sm:w-auto">
             <CalendarRange size={12} className="mr-1 inline" />
@@ -401,7 +452,7 @@ export default function PaginaSecretaria() {
               <h2 className="flex items-center gap-2 text-sm font-black tracking-tight">
                 <Users size={16} className={faltan.length ? "text-rojo" : "text-verde"} />
                 {mesCerrado
-                  ? `Mes cerrado · enviaron ${informes.length + marcas.length} de ${participantes.length}`
+                  ? `Mes cerrado · enviaron ${informes.length + marcas.length} de ${publicadores}`
                   : `Falta enviar su informe (${faltan.length})`}
               </h2>
               <div className="relative w-full sm:w-64">

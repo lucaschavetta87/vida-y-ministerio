@@ -17,6 +17,7 @@ import { Boton, Etiqueta, Panel, Titulo } from "@/components/ui";
 import ParticipanteForm from "@/components/ParticipanteForm";
 import GestionRoles from "@/components/GestionRoles";
 import { supabase } from "@/lib/supabase";
+import { etiquetaMes, mesAnterior, type Informe, type MarcaInforme } from "@/lib/informes";
 import type { Asignacion, Participante, Rol } from "@/lib/tipos";
 
 const AVISO_SUPABASE =
@@ -26,20 +27,30 @@ interface DatosParticipantes {
   participantes: Participante[];
   roles: Rol[];
   asignaciones: Asignacion[];
+  informes: Informe[];
+  marcas: MarcaInforme[];
   error: string;
+  /** Si falla la consulta de informes, no se marca a nadie como irregular. */
+  errorInformes: string;
 }
 
 async function traerDatos(): Promise<DatosParticipantes> {
-  const [p, r, a] = await Promise.all([
+  const mesInforme = mesAnterior();
+  const [p, r, a, i, m] = await Promise.all([
     supabase.from("participantes").select("*").order("nombre_completo"),
     supabase.from("roles").select("*").order("orden"),
     supabase.from("participante_roles").select("*"),
+    supabase.from("informes").select("*").eq("mes", mesInforme),
+    supabase.from("marcas_informe").select("*").eq("mes", mesInforme),
   ]);
   return {
     participantes: (p.data as Participante[]) || [],
     roles: (r.data as Rol[]) || [],
     asignaciones: (a.data as Asignacion[]) || [],
+    informes: (i.data as Informe[]) || [],
+    marcas: (m.data as MarcaInforme[]) || [],
     error: p.error?.message || r.error?.message || a.error?.message || "",
+    errorInformes: i.error?.message || m.error?.message || "",
   };
 }
 
@@ -47,9 +58,13 @@ export default function PaginaParticipantes() {
   const [participantes, setParticipantes] = useState<Participante[]>([]);
   const [roles, setRoles] = useState<Rol[]>([]);
   const [asignaciones, setAsignaciones] = useState<Asignacion[]>([]);
+  const [informesMes, setInformesMes] = useState<Informe[]>([]);
+  const [marcasMes, setMarcasMes] = useState<MarcaInforme[]>([]);
+  const [datosInformesOk, setDatosInformesOk] = useState(true);
   const [cargando, setCargando] = useState(true);
   const [busqueda, setBusqueda] = useState("");
-  const [mostrarInactivos, setMostrarInactivos] = useState(false);
+  const [filtroInactivos, setFiltroInactivos] = useState(false);
+  const [filtroIrregulares, setFiltroIrregulares] = useState(false);
   const [formAbierto, setFormAbierto] = useState(false);
   const [editando, setEditando] = useState<Participante | null>(null);
   const [rolesAbierto, setRolesAbierto] = useState(false);
@@ -64,7 +79,14 @@ export default function PaginaParticipantes() {
     setParticipantes(datos.participantes);
     setRoles(datos.roles);
     setAsignaciones(datos.asignaciones);
-    setAviso("");
+    setInformesMes(datos.informes);
+    setMarcasMes(datos.marcas);
+    setDatosInformesOk(!datos.errorInformes);
+    setAviso(
+      datos.errorInformes
+        ? "No se pudieron leer los informes del mes: el filtro de irregulares no está disponible. ¿Pegaste supabase/informes.sql?"
+        : "",
+    );
     setCargando(false);
   }, []);
 
@@ -82,10 +104,38 @@ export default function PaginaParticipantes() {
     };
   }, [aplicar]);
 
+  /** Ya informaron el mes anterior (mes que se está informando). */
+  const informaron = useMemo(() => {
+    const ids = new Set<string>();
+    informesMes.forEach((i) => ids.add(i.participante_id));
+    marcasMes.forEach((m) => ids.add(m.participante_id));
+    return ids;
+  }, [informesMes, marcasMes]);
+
+  /** Activos, publicadores y sin informe ni marca = irregulares del mes. */
+  const irregulares = useMemo(() => {
+    if (!datosInformesOk) return new Set<string>();
+    return new Set(
+      participantes
+        .filter(
+          (p) =>
+            p.activo &&
+            p.es_publicador !== false &&
+            !informaron.has(p.id),
+        )
+        .map((p) => p.id),
+    );
+  }, [participantes, informaron, datosInformesOk]);
+
   const visibles = useMemo(() => {
     const q = busqueda.trim().toLowerCase();
     return participantes.filter((p) => {
-      if (!mostrarInactivos && !p.activo) return false;
+      if (filtroInactivos) {
+        if (p.activo) return false;
+      } else if (!p.activo) {
+        return false;
+      }
+      if (filtroIrregulares && !irregulares.has(p.id)) return false;
       if (!q) return true;
       return (
         p.nombre_completo.toLowerCase().includes(q) ||
@@ -93,7 +143,7 @@ export default function PaginaParticipantes() {
         (p.direccion || "").toLowerCase().includes(q)
       );
     });
-  }, [participantes, busqueda, mostrarInactivos]);
+  }, [participantes, busqueda, filtroInactivos, filtroIrregulares, irregulares]);
 
   const mayores = useMemo(
     () =>
@@ -141,6 +191,7 @@ export default function PaginaParticipantes() {
        clasificacion: datos.clasificacion || null,
        retiro_donaciones_aprobado: datos.retiro_donaciones_aprobado || false,
        lector_atalaya_aprobado: datos.lector_atalaya_aprobado || false,
+      es_publicador: datos.es_publicador !== false,
        activo: datos.activo,
      };
 
@@ -156,7 +207,7 @@ export default function PaginaParticipantes() {
         error = reintento.error;
         if (!error)
           avisoColumnas =
-            "Faltan las columnas nuevas en la base (anios_bautizado, es_secretario, miembro_comite_asamblea). Corre el SQL de migración.";
+            "Faltan las columnas nuevas en la base (anios_bautizado, es_secretario, miembro_comite_asamblea, es_publicador). Corre el SQL de migración.";
       }
       if (error) return traducir(error.message);
     } else {
@@ -175,7 +226,7 @@ export default function PaginaParticipantes() {
         error = reintento.error;
         if (!error)
           avisoColumnas =
-            "Faltan las columnas nuevas en la base (anios_bautizado, es_secretario, miembro_comite_asamblea). Corre el SQL de migración.";
+            "Faltan las columnas nuevas en la base (anios_bautizado, es_secretario, miembro_comite_asamblea, es_publicador). Corre el SQL de migración.";
       }
       if (error) return traducir(error.message);
       if (!data) return "No se pudo guardar el participante.";
@@ -250,16 +301,41 @@ export default function PaginaParticipantes() {
           />
         </div>
         <button
-          onClick={() => setMostrarInactivos((v) => !v)}
+          onClick={() => setFiltroInactivos((v) => !v)}
           className={
             "cursor-pointer rounded-xl border px-3 py-2 text-xs font-bold tracking-wide transition-colors " +
-            (mostrarInactivos
+            (filtroInactivos
               ? "border-teal bg-teal/10 text-teal"
               : "border-linea text-suave hover:border-suave")
           }
+          title="Solo los participantes dados de baja"
         >
-          VER INACTIVOS
+          INACTIVOS
         </button>
+        <button
+          onClick={() => setFiltroIrregulares((v) => !v)}
+          disabled={!datosInformesOk}
+          className={
+            "cursor-pointer rounded-xl border px-3 py-2 text-xs font-bold tracking-wide transition-colors disabled:cursor-not-allowed disabled:opacity-50 " +
+            (filtroIrregulares
+              ? "border-rojo bg-rojo/10 text-rojo"
+              : "border-linea text-suave hover:border-suave")
+          }
+          title={`Publicadores activos sin informe de ${etiquetaMes(mesAnterior())}`}
+        >
+          IRREGULARES{irregulares.size ? ` (${irregulares.size})` : ""}
+        </button>
+        {(filtroInactivos || filtroIrregulares) && (
+          <button
+            onClick={() => {
+              setFiltroInactivos(false);
+              setFiltroIrregulares(false);
+            }}
+            className="cursor-pointer px-1 text-xs font-semibold text-teal hover:underline"
+          >
+            Limpiar filtros
+          </button>
+        )}
       </Panel>
 
       {aviso && (
@@ -278,7 +354,9 @@ export default function PaginaParticipantes() {
           <p className="text-sm text-suave">
             {participantes.length === 0
               ? "Todavía no hay participantes cargados. Empezá con el botón “Nuevo participante”."
-              : "Ningún participante coincide con la búsqueda."}
+              : filtroInactivos || filtroIrregulares
+                ? "Ningún participante coincide con los filtros aplicados."
+                : "Ningún participante coincide con la búsqueda."}
           </p>
         </Panel>
       ) : (
@@ -347,6 +425,16 @@ export default function PaginaParticipantes() {
                       )}
                       {p.lector_atalaya_aprobado && p.genero === "HOMBRE" && (
                         <div className="text-[11px] font-semibold text-teal">Lector de Atalaya: Aprobado</div>
+                      )}
+                      {p.es_publicador === false && (
+                        <div className="text-[11px] font-semibold text-rojo">
+                          No informa (no es publicador)
+                        </div>
+                      )}
+                      {irregulares.has(p.id) && (
+                        <div className="text-[11px] font-semibold text-rojo">
+                          Sin informe de {etiquetaMes(mesAnterior())}
+                        </div>
                       )}
                       {esNino && (
                         <div className="text-[11px] text-suave">
@@ -486,7 +574,12 @@ export default function PaginaParticipantes() {
   );
 }
 
-const COLUMNAS_NUEVAS = ["anios_bautizado", "es_secretario", "miembro_comite_asamblea"];
+const COLUMNAS_NUEVAS = [
+  "anios_bautizado",
+  "es_secretario",
+  "miembro_comite_asamblea",
+  "es_publicador",
+];
 
 function faltaColumnaNueva(mensaje: string): boolean {
   return COLUMNAS_NUEVAS.some((c) => mensaje.includes(c));

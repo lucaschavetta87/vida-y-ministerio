@@ -35,6 +35,7 @@ const nuevaFicha = (): Omit<Participante, "id"> & { id?: string } => ({
   clasificacion: null,
   retiro_donaciones_aprobado: false,
   lector_atalaya_aprobado: false,
+  es_publicador: true,
   activo: true,
 });
 
@@ -216,6 +217,18 @@ export default function ParticipanteForm({
                   />
                 </Campo>
                 <div className="flex flex-col justify-end gap-2 pb-1">
+                  <label
+                    className="flex cursor-pointer items-center gap-3"
+                    title="Si está tildado, llena el informe de actividad y aparece en Secretaría."
+                  >
+                    <input
+                      type="checkbox"
+                      checked={ficha.es_publicador !== false}
+                      onChange={(e) => set("es_publicador", e.target.checked)}
+                      className="h-4 w-4 accent-teal"
+                    />
+                    <span className="text-sm font-semibold">Es publicador</span>
+                  </label>
                   <label className="flex cursor-pointer items-center gap-3">
                     <input
                       type="checkbox"

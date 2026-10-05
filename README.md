@@ -36,17 +36,27 @@ participantes, roles y la asignación de personas a cada parte de la guía.
   Según el caso pide: horas del mes (precursor), **meta de 15 o 30 + las horas
   reales** (auxiliar, que pueden no coincidir con la meta) o si participó
   (publicador), más estudios bíblicos y observaciones. Un informe por persona y
-  por mes: si ya envió, no puede reenviar y la Secretaría lo corrige.
-- **Secretaría (Informes)**: en `/secretaria` (con usuario y contraseña) se ven
-  los informes del mes, agrupados en precursores, auxiliares y publicadores, con
-  las horas, los estudios y las observaciones de cada uno; la lista de quienes
-  **faltan enviar** con buscador, y botones para **cargar**, **editar** o
-  **borrar** cualquier informe. El mes siempre es el anterior al actual (se puede
-  cambiar para ver el historial).
-  - **Cargado en verde**: marca para quienes ya cargaron su informe en la otra
-    web (queda solo la marca, sin datos; esos meses no cuentan como faltantes).
-  - **Cerrar el mes**: deja de pedir los que faltan y deja auditable el mes. No
-    borra nada; se puede reabrir.
+  por mes: si ya envió, no puede reenviar y la Secretaría lo corrige. Solo
+  aparecen los tildados como **Es publicador** en su ficha (por defecto todos
+  están tildados; los que no informan se destildan y quedan afuera).
+- **Secretaría**: en `/secretaria` (con usuario y contraseña) hay dos pestañas.
+  - **Informes**: los informes del mes, agrupados en precursores, auxiliares y
+    publicadores, con las horas, los estudios y las observaciones de cada uno; la
+    lista de quienes **faltan enviar** con buscador, y botones para **cargar**,
+    **editar** o **borrar** cualquier informe. El mes siempre es el anterior al
+    actual (se puede cambiar para ver el historial).
+    - **Cargado en verde**: marca para quienes ya cargaron su informe en la otra
+      web (queda solo la marca, sin datos; esos meses no cuentan como faltantes).
+    - **Cerrar el mes**: deja de pedir los que faltan y deja auditable el mes. No
+      borra nada; se puede reabrir.
+  - **Asistencias a las reuniones**: lista cada día con auditorio, zoom y el
+    total (que se suma solo), con resumen del mes, cierre de mes y PDF.
+- **Formulario de acomodadores**: público en **`/asistencia`**, igual que el de
+  informes se busca el nombre y solo quien tiene la asignación de **Acomodador**
+  puede pasar. Carga el **día de la reunión** y los asistentes en **auditorio**
+  y **Zoom**; el total se calcula solo.
+- **Participantes**: además del buscador hay filtros **INACTIVOS** (los dados de
+  baja) e **IRREGULARES** (publicadores sin informe del mes anterior).
 - **Actividad del Año** (en la ficha de cada participante): mes a mes, con horas,
   estudios y observaciones, botón **Editar/Cargar** de cada mes, resumen del año y
   un cartel **IRREGULAR** si no informó el último mes, con botones para pasarlo a
@@ -80,6 +90,9 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=...
 - `supabase/informes_ampliacion.sql` — `informes.horas_meta` (meta 15/30 del
   auxiliar), tabla `marcas_informe` (cargado en otra web) y `informes_meses`
   (meses cerrados).
+- `supabase/migracion_v4.sql` — `participantes.es_publicador` (quién llena el
+  informe, por defecto todos tildados), tablas `asistencias` y
+  `asistencias_meses`, y el rol «Acomodador» para `/asistencia`.
 
 Se pegan en **Supabase → SQL Editor → Run**; son idempotentes.
 
@@ -88,12 +101,14 @@ Se pegan en **Supabase → SQL Editor → Run**; son idempotentes.
 | Ruta | Acceso | Para qué |
 | --- | --- | --- |
 | `/informes` | público | mandar el informe de actividad del mes |
+| `/asistencia` | público (acomodadores) | cargar la asistencia de un día |
 | `/` | con sesión | inicio (o login) |
 | `/participantes` | con sesión | fichas y roles |
 | `/reunion` | con sesión | armar la reunión |
 | `/asignaciones-mecanicas` | con sesión | tareas mecánicas |
-| `/secretaria` | con sesión | informes del mes |
+| `/secretaria` | con sesión | informes y asistencias del mes |
 | `/secretaria/informes/pdf` | con sesión | PDF de auditoría del año |
+| `/secretaria/asistencias/pdf/[mes]` | con sesión | PDF de asistencias del mes |
 
 Lo protege `proxy.ts` (si no hay sesión, vuelve a `/`). El formulario público usa
 los endpoints `/api/informes` desde el servidor: nunca expone la llave de Supabase
