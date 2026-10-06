@@ -17,7 +17,8 @@ interface RAM {
   acomodador_auditorio_id: string | null;
   microfonista_1_id: string | null;
   microfonista_2_id: string | null;
-  audio_video_id: string | null;
+  audio_id: string | null;
+  video_id: string | null;
   plataforma_id: string | null;
   retiro_donaciones_1_id: string | null;
   retiro_donaciones_2_id: string | null;
@@ -34,7 +35,8 @@ interface RAM {
   acomodador_auditorio_fs_id: string | null;
   microfonista_1_fs_id: string | null;
   microfonista_2_fs_id: string | null;
-  audio_video_fs_id: string | null;
+  audio_fs_id: string | null;
+  video_fs_id: string | null;
   plataforma_fs_id: string | null;
   retiro_donaciones_1_fs_id: string | null;
   retiro_donaciones_2_fs_id: string | null;
@@ -143,7 +145,8 @@ export default function PdfAsignacionesMecanicas() {
           <Fila etiqueta="Acomodador de Auditorio" valor={get(ram?.acomodador_auditorio_id)} />
           <Fila etiqueta="Micrófonista 1" valor={get(ram?.microfonista_1_id)} />
           <Fila etiqueta="Micrófonista 2" valor={get(ram?.microfonista_2_id)} />
-          <Fila etiqueta="Audio y Video" valor={get(ram?.audio_video_id)} />
+          <Fila etiqueta="Audio" valor={get(ram?.audio_id)} />
+          <Fila etiqueta="Video" valor={get(ram?.video_id)} />
           <Fila etiqueta="Plataforma" valor={get(ram?.plataforma_id)} />
           <Fila
             etiqueta="Retiro de Donaciones"
@@ -183,7 +186,8 @@ export default function PdfAsignacionesMecanicas() {
           <Fila etiqueta="Acomodador de Auditorio" valor={get(ram?.acomodador_auditorio_fs_id)} />
           <Fila etiqueta="Micrófonista 1" valor={get(ram?.microfonista_1_fs_id)} />
           <Fila etiqueta="Micrófonista 2" valor={get(ram?.microfonista_2_fs_id)} />
-          <Fila etiqueta="Audio y Video" valor={get(ram?.audio_video_fs_id)} />
+          <Fila etiqueta="Audio" valor={get(ram?.audio_fs_id)} />
+          <Fila etiqueta="Video" valor={get(ram?.video_fs_id)} />
           <Fila etiqueta="Plataforma" valor={get(ram?.plataforma_fs_id)} />
           <Fila
             etiqueta="Retiro de Donaciones"

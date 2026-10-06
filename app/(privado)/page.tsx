@@ -15,14 +15,14 @@ const tarjetas = [
   {
     href: "/reunion",
     icono: CalendarDays,
-    titulo: "Reunión de la semana",
+    titulo: "Vida y Ministerio",
     texto: "Armá la reunión parte por parte y elegí con un buscador quién cumple cada asignación, según los roles de cada participante.",
   },
   {
     href: "/asignaciones-mecanicas",
     icono: Wrench,
     titulo: "Asignaciones Mecánicas",
-    texto: "Acomodadores,micrófonos, audio y video, retiro de donaciones y limpieza, para la reunión de entre semana y la de fin de semana.",
+    texto: "Acomodadores, micrófonos, audio, video, retiro de donaciones y limpieza, para la reunión de entre semana y la de fin de semana.",
   },
   {
     href: "/secretaria",

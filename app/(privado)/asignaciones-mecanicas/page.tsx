@@ -16,7 +16,8 @@ interface RAM {
   acomodador_auditorio_id: string | null;
   microfonista_1_id: string | null;
   microfonista_2_id: string | null;
-  audio_video_id: string | null;
+  audio_id: string | null;
+  video_id: string | null;
   plataforma_id: string | null;
   retiro_donaciones_1_id: string | null;
   retiro_donaciones_2_id: string | null;
@@ -33,7 +34,8 @@ interface RAM {
   acomodador_auditorio_fs_id: string | null;
   microfonista_1_fs_id: string | null;
   microfonista_2_fs_id: string | null;
-  audio_video_fs_id: string | null;
+  audio_fs_id: string | null;
+  video_fs_id: string | null;
   plataforma_fs_id: string | null;
   retiro_donaciones_1_fs_id: string | null;
   retiro_donaciones_2_fs_id: string | null;
@@ -49,7 +51,8 @@ const TAREAS: [keyof RAM, string][] = [
   ["acomodador_auditorio_id", "Acomodador de auditorio (entre semana)"],
   ["microfonista_1_id", "Micrófonista 1 (entre semana)"],
   ["microfonista_2_id", "Micrófonista 2 (entre semana)"],
-  ["audio_video_id", "Audio y video (entre semana)"],
+  ["audio_id", "Audio (entre semana)"],
+  ["video_id", "Video (entre semana)"],
   ["plataforma_id", "Plataforma (entre semana)"],
   ["retiro_donaciones_1_id", "Retiro de donaciones 1 (entre semana)"],
   ["retiro_donaciones_2_id", "Retiro de donaciones 2 (entre semana)"],
@@ -61,7 +64,8 @@ const TAREAS: [keyof RAM, string][] = [
   ["acomodador_auditorio_fs_id", "Acomodador de auditorio (fin de semana)"],
   ["microfonista_1_fs_id", "Micrófonista 1 (fin de semana)"],
   ["microfonista_2_fs_id", "Micrófonista 2 (fin de semana)"],
-  ["audio_video_fs_id", "Audio y video (fin de semana)"],
+  ["audio_fs_id", "Audio (fin de semana)"],
+  ["video_fs_id", "Video (fin de semana)"],
   ["plataforma_fs_id", "Plataforma (fin de semana)"],
   ["retiro_donaciones_1_fs_id", "Retiro de donaciones 1 (fin de semana)"],
   ["retiro_donaciones_2_fs_id", "Retiro de donaciones 2 (fin de semana)"],
@@ -76,7 +80,8 @@ function ramVacio(reunionId: string): RAM {
     acomodador_auditorio_id: null,
     microfonista_1_id: null,
     microfonista_2_id: null,
-    audio_video_id: null,
+    audio_id: null,
+    video_id: null,
     plataforma_id: null,
     retiro_donaciones_1_id: null,
     retiro_donaciones_2_id: null,
@@ -93,7 +98,8 @@ function ramVacio(reunionId: string): RAM {
     acomodador_auditorio_fs_id: null,
     microfonista_1_fs_id: null,
     microfonista_2_fs_id: null,
-    audio_video_fs_id: null,
+    audio_fs_id: null,
+    video_fs_id: null,
     plataforma_fs_id: null,
     retiro_donaciones_1_fs_id: null,
     retiro_donaciones_2_fs_id: null,
@@ -305,7 +311,8 @@ export default function AsignacionesMecanicasPage() {
     ["acomodador_auditorio_id", "acomodador_auditorio_fs_id"],
     ["microfonista_1_id", "microfonista_1_fs_id"],
     ["microfonista_2_id", "microfonista_2_fs_id"],
-    ["audio_video_id", "audio_video_fs_id"],
+    ["audio_id", "audio_fs_id"],
+    ["video_id", "video_fs_id"],
     ["plataforma_id", "plataforma_fs_id"],
     ["retiro_donaciones_1_id", "retiro_donaciones_1_fs_id"],
     ["retiro_donaciones_2_id", "retiro_donaciones_2_fs_id"],
@@ -331,10 +338,23 @@ export default function AsignacionesMecanicasPage() {
   const guardar = async () => {
     if (!ram || !reunionId) return;
     setGuardando(true);
-    const { error } = await supabase.from("reunion_asignaciones_mecanicas").upsert(ram);
+    // las columnas viejas "audio y video" ya no se usan: no se mandan
+    const campos: Record<string, unknown> = { ...ram };
+    delete campos.audio_video_id;
+    delete campos.audio_video_fs_id;
+    const { error } = await supabase
+      .from("reunion_asignaciones_mecanicas")
+      .upsert(campos);
     setGuardando(false);
-    if (error) setError(error.message);
-    else setError("");
+    if (error) {
+      setError(
+        error.code === "42703" ||
+          error.code === "PGRST204" ||
+          /does not exist|could not find/i.test(error.message)
+          ? "Falta la migración: pegá supabase/migracion_v5.sql en el SQL Editor de Supabase."
+          : error.message,
+      );
+    } else setError("");
   };
 
   const irPdf = () => {
@@ -362,7 +382,7 @@ export default function AsignacionesMecanicasPage() {
             (subiendo el PDF de la guía) y volvé a esta pantalla.
           </p>
           <Boton className="mt-4" onClick={() => router.push("/reunion")}>
-            Ir a Reunión
+            Ir a Vida y Ministerio
           </Boton>
         </Panel>
       </div>
@@ -437,8 +457,11 @@ export default function AsignacionesMecanicasPage() {
           <Campo label="Micrófonista 2">
             <SelectorPersona todos={participantes} candidatos={aptosMicrofonista} valor={ram.microfonista_2_id} tareasDe={avisosDe("microfonista_2_id")} onChange={(id) => set("microfonista_2_id", id)} temasDe={temasDe} historial={historial} hoy={hoy} />
           </Campo>
-          <Campo label="Audio y Video">
-            <SelectorPersona todos={participantes} candidatos={aptosAudioVideo} valor={ram.audio_video_id} tareasDe={avisosDe("audio_video_id")} onChange={(id) => set("audio_video_id", id)} temasDe={temasDe} historial={historial} hoy={hoy} />
+          <Campo label="Audio">
+            <SelectorPersona todos={participantes} candidatos={aptosAudioVideo} valor={ram.audio_id} tareasDe={avisosDe("audio_id")} onChange={(id) => set("audio_id", id)} temasDe={temasDe} historial={historial} hoy={hoy} />
+          </Campo>
+          <Campo label="Video">
+            <SelectorPersona todos={participantes} candidatos={aptosAudioVideo} valor={ram.video_id} tareasDe={avisosDe("video_id")} onChange={(id) => set("video_id", id)} temasDe={temasDe} historial={historial} hoy={hoy} />
           </Campo>
           <Campo label="Plataforma">
             <SelectorPersona todos={participantes} candidatos={aptosPlataforma} valor={ram.plataforma_id} tareasDe={avisosDe("plataforma_id")} onChange={(id) => set("plataforma_id", id)} temasDe={temasDe} historial={historial} hoy={hoy} />
@@ -457,7 +480,7 @@ export default function AsignacionesMecanicasPage() {
           <div>
             <h2 className="text-lg font-bold">REUNIÓN DE FIN DE SEMANA</h2>
             <p className="text-xs text-suave">
-              Acomodadores, microfónistas, audio y video, plataforma, retiro de
+              Acomodadores, microfónistas, audio, video, plataforma, retiro de
               donaciones y limpieza se repiten de la reunión de entre semana.
             </p>
           </div>
@@ -509,8 +532,11 @@ export default function AsignacionesMecanicasPage() {
           <Campo label="Micrófonista 2">
             <SelectorPersona todos={participantes} candidatos={aptosMicrofonista} valor={ram.microfonista_2_fs_id} tareasDe={avisosDe("microfonista_2_fs_id")} onChange={(id) => set("microfonista_2_fs_id", id)} temasDe={temasDe} historial={historial} hoy={hoy} />
           </Campo>
-          <Campo label="Audio y Video">
-            <SelectorPersona todos={participantes} candidatos={aptosAudioVideo} valor={ram.audio_video_fs_id} tareasDe={avisosDe("audio_video_fs_id")} onChange={(id) => set("audio_video_fs_id", id)} temasDe={temasDe} historial={historial} hoy={hoy} />
+          <Campo label="Audio">
+            <SelectorPersona todos={participantes} candidatos={aptosAudioVideo} valor={ram.audio_fs_id} tareasDe={avisosDe("audio_fs_id")} onChange={(id) => set("audio_fs_id", id)} temasDe={temasDe} historial={historial} hoy={hoy} />
+          </Campo>
+          <Campo label="Video">
+            <SelectorPersona todos={participantes} candidatos={aptosAudioVideo} valor={ram.video_fs_id} tareasDe={avisosDe("video_fs_id")} onChange={(id) => set("video_fs_id", id)} temasDe={temasDe} historial={historial} hoy={hoy} />
           </Campo>
           <Campo label="Plataforma">
             <SelectorPersona todos={participantes} candidatos={aptosPlataforma} valor={ram.plataforma_fs_id} tareasDe={avisosDe("plataforma_fs_id")} onChange={(id) => set("plataforma_fs_id", id)} temasDe={temasDe} historial={historial} hoy={hoy} />

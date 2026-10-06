@@ -9,7 +9,7 @@ import { cn } from "@/lib/utils";
 
 const enlaces = [
   { href: "/participantes", texto: "Participantes", Icono: Users },
-  { href: "/reunion", texto: "Reunión", Icono: CalendarDays },
+  { href: "/reunion", texto: "Vida y Ministerio", Icono: CalendarDays },
   { href: "/asignaciones-mecanicas", texto: "Asignaciones Mecánicas", Icono: Wrench },
   { href: "/secretaria", texto: "Secretaría", Icono: ClipboardList },
 ];

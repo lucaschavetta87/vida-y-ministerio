@@ -296,9 +296,14 @@ const ORDEN_TIPO = { linea: 0, cancion: 1, item: 5 } as const;
 
 function ordenDe(p: ParteMwb): number {
   const base = ORDEN_BASE[p.seccion] ?? 400;
+  if (p.seccion === CIERRE) {
+    // el cierre va: primero las palabras de conclusión, después la
+    // canción y la oración (al final de todo)
+    if (p.tipo === "item") return base + 10;
+    return base + 20 + ORDEN_TIPO[p.tipo];
+  }
   if (p.tipo !== "item") {
     if (p.seccion === APERTURA) return 10 + ORDEN_TIPO[p.tipo];
-    if (p.seccion === CIERRE) return 920 - ORDEN_TIPO[p.tipo];
     return base + 5 + ORDEN_TIPO[p.tipo];
   }
   return base + (p.numero ?? 5) * 10;

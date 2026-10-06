@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
+  Ban,
   CalendarCheck,
   CheckCircle2,
   Pencil,
@@ -265,6 +266,36 @@ export default function PaginaParticipantes() {
     else await cargar();
   };
 
+  const eliminar = async (p: Participante) => {
+    if (
+      !window.confirm(
+        `¿Eliminar a ${p.nombre_completo}?\n\n` +
+          "Se borra su ficha y todo su historial (informes, asistencias y asignaciones). " +
+          "Esto no se puede deshacer.",
+      )
+    )
+      return;
+    const { error } = await supabase.from("participantes").delete().eq("id", p.id);
+    if (error) {
+      if (error.message.includes("parentesco")) {
+        setAviso(
+          "No se puede eliminar: es el mayor de menores cargados. Sacales primero ese parentesco en su ficha.",
+        );
+      } else if (error.code === "23503") {
+        setAviso("No se puede eliminar: todavía hay algo de la base que lo referencia.");
+      } else {
+        setAviso(traducir(error.message));
+      }
+      return;
+    }
+    setAviso("");
+    if (editando?.id === p.id) {
+      setEditando(null);
+      setFormAbierto(false);
+    }
+    await cargar();
+  };
+
   return (
     <div>
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
@@ -514,7 +545,14 @@ export default function PaginaParticipantes() {
                           }
                           title={p.activo ? "Desactivar" : "Reactivar"}
                         >
-                          {p.activo ? <Trash2 size={14} /> : <CheckCircle2 size={14} />}
+                          {p.activo ? <Ban size={14} /> : <CheckCircle2 size={14} />}
+                        </button>
+                        <button
+                          onClick={() => eliminar(p)}
+                          className="cursor-pointer rounded-lg border border-linea p-2 text-suave transition-colors hover:border-rojo hover:text-rojo"
+                          title="Eliminar definitivamente"
+                        >
+                          <Trash2 size={14} />
                         </button>
                       </div>
                     </td>
@@ -537,6 +575,9 @@ export default function PaginaParticipantes() {
         </span>
         <span className="flex items-center gap-1.5">
           <UserRound size={13} /> Desactivar conserva el historial
+        </span>
+        <span className="flex items-center gap-1.5">
+          <Trash2 size={13} /> Eliminar borra la ficha y todo el historial
         </span>
       </div>
 

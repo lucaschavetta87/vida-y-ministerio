@@ -5,10 +5,12 @@ participantes, roles y la asignación de personas a cada parte de la guía.
 
 ## Qué hace
 
-- **Participantes**: alta/baja, datos básicos, parentesco con un mayor ya cargado
+- **Participantes**: alta/baja (desactivar conserva el historial, **eliminar**
+  borra la ficha y todo lo que cuelga de ella: informes, asistencias y
+  asignaciones), datos básicos, parentesco con un mayor ya cargado
   y roles tildados por persona (géneros `HOMBRE`/`MUJER`/`NIÑO`/`NIÑA`; los niños
   van sin roles).
-- **Reunión**: la guía de la semana **copiada del PDF** que trae la reunión de
+- **Vida y Ministerio**: la guía de la semana **copiada del PDF** que trae la reunión de
   dos meses (títulos, duraciones, canciones, párrafos e ilustraciones). El botón
   «Subir PDF» crea todas las semanas del archivo de una.
 - **Asignaciones**: una sola persona por parte; en **Lectura de la Biblia** y
@@ -22,7 +24,7 @@ participantes, roles y la asignación de personas a cada parte de la guía.
   sin participar.
 - **Asignaciones Mecánicas**: por tarea solo se listan los que ya tienen ese rol
   aprobado en su ficha. Si alguien ya tiene un tema en la reunión de la semana
-  aparece avisado (se puede poner igual). Acomodadores, microfónistas, audio y
+  aparece avisado (se puede poner igual). Acomodadores, microfónistas, audio,
   video, plataforma y limpieza se repiten de entre semana a fin de semana con el
   botón **Repetir de entre semana**.
 - **PDF**: vista imprimible con el estilo de la guía (subtítulos con su color,
@@ -93,6 +95,9 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=...
 - `supabase/migracion_v4.sql` — `participantes.es_publicador` (quién llena el
   informe, por defecto todos tildados), tablas `asistencias` y
   `asistencias_meses`, y el rol «Acomodador» para `/asistencia`.
+- `supabase/migracion_v5.sql` — Asignaciones Mecánicas con `audio` y `video`
+  por separado (el campo viejo «Audio y Video» no se migra) y el orden del
+  cierre: primero «Palabras de conclusión», después la canción y la oración.
 
 Se pegan en **Supabase → SQL Editor → Run**; son idempotentes.
 
@@ -104,7 +109,7 @@ Se pegan en **Supabase → SQL Editor → Run**; son idempotentes.
 | `/asistencia` | público (acomodadores) | cargar la asistencia de un día |
 | `/` | con sesión | inicio (o login) |
 | `/participantes` | con sesión | fichas y roles |
-| `/reunion` | con sesión | armar la reunión |
+| `/reunion` | con sesión | el Vida y Ministerio de la semana |
 | `/asignaciones-mecanicas` | con sesión | tareas mecánicas |
 | `/secretaria` | con sesión | informes y asistencias del mes |
 | `/secretaria/informes/pdf` | con sesión | PDF de auditoría del año |

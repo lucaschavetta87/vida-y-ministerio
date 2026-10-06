@@ -764,7 +764,7 @@ export default function PaginaReunion() {
     return (
       <div className="mx-auto max-w-2xl">
         <h1 className="mb-6 text-3xl font-black tracking-tight">
-          Reunión de la semana
+          Vida y Ministerio
         </h1>
 
         <Panel className="mb-6 p-6">

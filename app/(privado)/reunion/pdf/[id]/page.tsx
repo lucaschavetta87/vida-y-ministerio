@@ -183,7 +183,7 @@ export default function PaginaPdfReunion() {
           href="/reunion"
           className="flex items-center gap-1 text-sm font-semibold text-teal hover:underline"
         >
-          <ChevronLeft size={15} /> Volver a Reunión
+          <ChevronLeft size={15} /> Volver a Vida y Ministerio
         </Link>
       </div>
     );
@@ -196,7 +196,7 @@ export default function PaginaPdfReunion() {
           href="/reunion"
           className="flex items-center gap-1 text-sm font-semibold text-suave transition-colors hover:text-teal"
         >
-          <ChevronLeft size={15} /> Volver a la reunión
+          <ChevronLeft size={15} /> Volver a Vida y Ministerio
         </Link>
         <button
           onClick={() => window.print()}
@@ -211,7 +211,7 @@ export default function PaginaPdfReunion() {
         <div className="flex flex-wrap items-end justify-between gap-2">
           <div>
             <h1 className="text-lg leading-tight font-black tracking-wide uppercase">
-              Vida y Ministerio Cristianos
+              Guia Vida y Ministerio Cristianos
             </h1>
             <p className="text-sm font-semibold">{reunion.titulo}</p>
           </div>

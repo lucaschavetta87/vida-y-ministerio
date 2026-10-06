@@ -22,15 +22,6 @@ import {
 
 type Paso = "nombre" | "confirmar" | "elegir" | "formulario" | "enviado" | "cerrado";
 
-interface Resumen {
-  tipo: string;
-  horas: number | null;
-  horas_meta: number | null;
-  participo: boolean | null;
-  estudios_biblicos: number;
-  observaciones: string | null;
-}
-
 export default function FormularioInforme({ etiqueta }: { etiqueta: string }) {
   const [paso, setPaso] = useState<Paso>("nombre");
   const [nombre, setNombre] = useState("");
@@ -39,7 +30,6 @@ export default function FormularioInforme({ etiqueta }: { etiqueta: string }) {
   const [borrador, setBorrador] = useState<BorradorFormulario>(BORRADOR_VACIO);
   const [errores, setErrores] = useState<ErroresInforme>({});
   const [aviso, setAviso] = useState("");
-  const [resumen, setResumen] = useState<Resumen | null>(null);
   const [buscando, setBuscando] = useState(false);
   const [enviando, setEnviando] = useState(false);
 
@@ -51,7 +41,6 @@ export default function FormularioInforme({ etiqueta }: { etiqueta: string }) {
     setBorrador(BORRADOR_VACIO);
     setErrores({});
     setAviso("");
-    setResumen(null);
   };
 
   const buscar = async () => {
@@ -97,7 +86,6 @@ export default function FormularioInforme({ etiqueta }: { etiqueta: string }) {
         return;
       }
       if (datos.enviado) {
-        setResumen(datos.resumen || null);
         setPaso("cerrado");
         return;
       }
@@ -128,9 +116,12 @@ export default function FormularioInforme({ etiqueta }: { etiqueta: string }) {
       });
       const datos = await r.json();
       if (!r.ok) {
+        if (datos.yaEnviado) {
+          setPaso("cerrado");
+          return;
+        }
         setAviso(datos.error || "No pudimos guardar tu informe.");
         if (datos.errores) setErrores(datos.errores);
-        if (datos.yaEnviado) setPaso("cerrado");
         return;
       }
       setPaso("enviado");
@@ -265,45 +256,10 @@ export default function FormularioInforme({ etiqueta }: { etiqueta: string }) {
                 <div className="flex items-start gap-2.5 rounded-xl border border-verde/30 bg-verde/5 px-4 py-3.5 text-sm">
                   <CheckCircle2 size={18} className="mt-0.5 shrink-0 text-verde" />
                   <div>
-                    <p className="font-bold text-verde">
-                      Ya enviaste tu informe de {etiqueta}.
-                    </p>
-                    {resumen && (
-                      <ul className="mt-2 space-y-1 text-xs text-suave">
-                        <li>
-                          Situación: <strong className="text-texto">{resumen.tipo}</strong>
-                        </li>
-                        {resumen.horas_meta !== null && (
-                          <li>
-                            Meta de auxiliar:{" "}
-                            <strong className="text-texto">{resumen.horas_meta} horas</strong>
-                          </li>
-                        )}
-                        {resumen.horas !== null && (
-                          <li>
-                            Horas: <strong className="text-texto">{resumen.horas}</strong>
-                          </li>
-                        )}
-                        {resumen.participo !== null && (
-                          <li>
-                            Participaste:{" "}
-                            <strong className="text-texto">{resumen.participo ? "Sí" : "No"}</strong>
-                          </li>
-                        )}
-                        <li>
-                          Estudios bíblicos:{" "}
-                          <strong className="text-texto">{resumen.estudios_biblicos}</strong>
-                        </li>
-                        {resumen.observaciones && (
-                          <li>
-                            Observaciones:{" "}
-                            <strong className="text-texto">{resumen.observaciones}</strong>
-                          </li>
-                        )}
-                      </ul>
-                    )}
-                    <p className="mt-2 text-xs text-suave">
-                      Para corregir algo, comunicate con la Secretaría.
+                    <p className="font-bold text-verde">Ya mandaste tu informe.</p>
+                    <p className="mt-1 text-xs text-suave">
+                      Si necesitas modificarlo, hablá con tu superintendente de grupo o el
+                      secretario.
                     </p>
                   </div>
                 </div>

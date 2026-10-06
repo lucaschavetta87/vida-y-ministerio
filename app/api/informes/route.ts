@@ -117,7 +117,7 @@ export async function POST(request: Request) {
   if (yaEnviado) {
     return NextResponse.json(
       {
-        error: `Ya enviaste tu informe de ${etiqueta}. Para corregirlo, comunicate con la Secretaría.`,
+        error: `Ya mandaste tu informe. Si necesitas modificarlo, hablá con tu superintendente de grupo o el secretario.`,
         yaEnviado: true,
       },
       { status: 409 },
@@ -135,7 +135,7 @@ export async function POST(request: Request) {
     return NextResponse.json(
       {
         error: duplicado
-          ? `Ya enviaste tu informe de ${etiqueta}. Para corregirlo, comunicate con la Secretaría.`
+          ? `Ya mandaste tu informe. Si necesitas modificarlo, hablá con tu superintendente de grupo o el secretario.`
           : "No pudimos guardar tu informe. Intentá otra vez.",
         yaEnviado: duplicado,
       },
