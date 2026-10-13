@@ -12,12 +12,16 @@ import {
   UserX,
 } from "lucide-react";
 import EditorInforme from "@/components/EditorInforme";
-import { Boton, Etiqueta, Panel } from "@/components/ui";
+import { Boton, Etiqueta, Panel, Select } from "@/components/ui";
 import { supabase } from "@/lib/supabase";
 import {
-  MESES,
-  MESES_CORTO,
-  claveMes,
+  anioServicioActual,
+  aniosDeFicha,
+  etiquetaAnioServicio,
+  mesesDelAnioServicio,
+  rangoAnioServicio,
+} from "@/lib/anio-servicio";
+import {
   etiquetaMes,
   mesAnterior,
   textoTipo,
@@ -27,7 +31,7 @@ import {
 } from "@/lib/informes";
 import type { Participante } from "@/lib/tipos";
 
-/** Una fila por mes del año. */
+/** Una fila por mes del año de servicio (septiembre a agosto). */
 interface Fila {
   clave: string;
   corto: string;
@@ -45,11 +49,14 @@ interface Editando {
 export default function ActividadDelAnio({
   participante,
   onCambiarActivo,
+  soloLectura = false,
 }: {
   participante: Participante;
   onCambiarActivo: (activo: boolean) => Promise<void>;
+  /** true = solo para ver el año de servicio, sin tocar nada. */
+  soloLectura?: boolean;
 }) {
-  const anio = new Date().getFullYear();
+  const [anioServicio, setAnioServicio] = useState(() => anioServicioActual());
   const [informes, setInformes] = useState<Informe[]>([]);
   const [marcas, setMarcas] = useState<MarcaInforme[]>([]);
   const [cargando, setCargando] = useState(true);
@@ -57,23 +64,23 @@ export default function ActividadDelAnio({
   const [aviso, setAviso] = useState("");
   const [editando, setEditando] = useState<Editando | null>(null);
 
+  const rango = useMemo(() => rangoAnioServicio(anioServicio), [anioServicio]);
+
   const recargar = useCallback(
     (conCancelacion?: { cancelado: () => boolean }) => {
-      const desde = `${anio}-01`;
-      const hasta = `${anio}-12`;
       Promise.all([
         supabase
           .from("informes")
           .select("*")
           .eq("participante_id", participante.id)
-          .gte("mes", desde)
-          .lte("mes", hasta),
+          .gte("mes", rango.desde)
+          .lte("mes", rango.hasta),
         supabase
           .from("marcas_informe")
           .select("*")
           .eq("participante_id", participante.id)
-          .gte("mes", desde)
-          .lte("mes", hasta),
+          .gte("mes", rango.desde)
+          .lte("mes", rango.hasta),
       ]).then(([i, m]) => {
         if (conCancelacion?.cancelado()) return;
         setInformes((i.data as Informe[]) || []);
@@ -88,8 +95,13 @@ export default function ActividadDelAnio({
         setCargando(false);
       });
     },
-    [anio, participante.id],
+    [participante.id, rango.desde, rango.hasta],
   );
+
+  const cambiarAnio = useCallback((anio: number) => {
+    setCargando(true);
+    setAnioServicio(anio);
+  }, []);
 
   useEffect(() => {
     let cancelado = false;
@@ -99,33 +111,53 @@ export default function ActividadDelAnio({
     };
   }, [recargar]);
 
+  /**
+   * Años que se pueden ver en esta ficha: el que está en curso, el anterior
+   * (siempre está disponible) y los anteriores si la ficha arrancó antes.
+   */
+  const anios = useMemo(
+    () => aniosDeFicha(participante.anio_servicio_inicio),
+    [participante.anio_servicio_inicio],
+  );
+
+  const meses = useMemo(() => mesesDelAnioServicio(anioServicio), [anioServicio]);
+
   const filas: Fila[] = useMemo(() => {
     const porMes = new Map(informes.map((i) => [i.mes, i]));
     const marcados = new Set(marcas.map((m) => m.mes));
-    return MESES.map((_nombre, indice) => {
-      const clave = claveMes(anio, indice);
-      return {
-        clave,
-        corto: MESES_CORTO[indice],
-        informe: porMes.get(clave) || null,
-        marcada: marcados.has(clave),
-      };
-    });
-  }, [anio, informes, marcas]);
+    return meses.map((mes) => ({
+      clave: mes.clave,
+      corto: mes.corto,
+      informe: porMes.get(mes.clave) || null,
+      marcada: marcados.has(mes.clave),
+    }));
+  }, [meses, informes, marcas]);
 
   const ultimoMes = mesAnterior();
-  const informadoUltimo = filas.some(
-    (f) => f.clave === ultimoMes && (f.informe || f.marcada),
-  );
+
+  /**
+   * Irregular = no entregó el informe del mes que se está informando.
+   * Solo tiene sentido mirando el año de servicio que incluye ese mes.
+   */
+  const esPublicador = participante.es_publicador !== false;
+  const mesEnElAnio = rango.desde <= ultimoMes && ultimoMes <= rango.hasta;
+  const irregular = useMemo(() => {
+    if (!mesEnElAnio) return false;
+    return (
+      !informes.some((i) => i.mes === ultimoMes) &&
+      !marcas.some((m) => m.mes === ultimoMes)
+    );
+  }, [informes, marcas, ultimoMes, mesEnElAnio]);
+
+  const mesesInformados = filas.filter((f) => f.informe || f.marcada).length;
 
   const resumen = useMemo(() => {
     const horas = informes.reduce((s, i) => s + (i.horas ?? 0), 0);
     const estudios = informes.reduce((s, i) => s + (i.estudios_biblicos ?? 0), 0);
-    const meses = filas.filter((f) => f.informe || f.marcada).length;
     const precursores = filas.filter((f) => f.informe?.tipo === "PRECURSOR").length;
     const auxiliares = filas.filter((f) => f.informe?.tipo === "AUXILIAR").length;
-    return { horas, estudios, meses, precursores, auxiliares };
-  }, [informes, filas]);
+    return { horas, estudios, meses: mesesInformados, precursores, auxiliares };
+  }, [informes, filas, mesesInformados]);
 
   const guardar = async (borrador: BorradorInforme) => {
     if (!editando) return;
@@ -205,28 +237,51 @@ export default function ActividadDelAnio({
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <p className="text-sm font-bold">Actividad mes a mes · {anio}</p>
-          <p className="text-xs text-suave">
-            Todo lo que se informó de esta persona, mes por mes. Podés cargar a mano los
-            meses que faltaron, aunque el mes esté cerrado.
+          <p className="text-sm font-bold">
+            Actividad · Año de servicio {etiquetaAnioServicio(anioServicio)}
           </p>
+          <p className="text-xs text-suave">
+            De septiembre a agosto. Podés cargar a mano los meses que faltaron, aunque el mes esté
+            cerrado.
+          </p>
+        </div>
+        <div className="w-full sm:w-56">
+          <Select
+            value={anioServicio}
+            onChange={(e) => cambiarAnio(Number(e.target.value))}
+            aria-label="Año de servicio"
+          >
+            {anios.map((a) => (
+              <option key={a} value={a}>
+                {etiquetaAnioServicio(a)}
+                {a === anioServicioActual() ? " (en curso)" : ""}
+              </option>
+            ))}
+          </Select>
         </div>
       </div>
 
-      {!informadoUltimo && (
+      {!esPublicador ? (
+        <div className="flex items-start gap-2.5 rounded-xl border border-linea bg-tarjeta2 px-4 py-3 text-sm">
+          <CheckCircle2 size={17} className="mt-0.5 shrink-0 text-suave" />
+          <p className="text-xs text-suave">
+            No está tildado como publicador: no informa y no se le pide el informe.
+          </p>
+        </div>
+      ) : irregular ? (
         <div className="flex items-start gap-2.5 rounded-xl border border-gold/40 bg-gold/10 px-4 py-3 text-sm">
           <AlertTriangle size={17} className="mt-0.5 shrink-0 text-gold" />
           <div>
             <p className="font-bold text-gold">IRREGULAR</p>
             <p className="text-xs text-suave">
-              No informó {etiquetaMes(ultimoMes)}. Si son varios meses, evaluá pasarlo a inactivo.
+              No informó {etiquetaMes(ultimoMes)}. Si son varios meses seguidos, evaluá pasarlo a
+              inactivo con el botón de abajo.
             </p>
           </div>
         </div>
-      )}
-      {informadoUltimo && (
+      ) : (
         <div className="flex items-start gap-2.5 rounded-xl border border-verde/40 bg-verde/5 px-4 py-3 text-sm">
           <CheckCircle2 size={17} className="mt-0.5 shrink-0 text-verde" />
           <p className="text-xs text-suave">
@@ -333,6 +388,8 @@ export default function ActividadDelAnio({
                     <td className="px-2 py-2 text-right">
                       {fila.clave > ultimoMes ? (
                         <span className="text-[11px] text-suave">aún no</span>
+                      ) : soloLectura ? (
+                        <span className="text-[11px] text-suave">—</span>
                       ) : (
                         <Boton
                           variante="fantasma"
@@ -358,11 +415,13 @@ export default function ActividadDelAnio({
         <Etiqueta tono={participante.activo ? "verde" : "rojo"}>
           {participante.activo ? "ACTIVO" : "INACTIVO"}
         </Etiqueta>
+        {soloLectura ? null : (
         <Boton
           variante={participante.activo ? "peligro" : "secundario"}
           onClick={alternarActivo}
           disabled={guardando}
           className="px-3 py-1.5 text-xs"
+
         >
           {participante.activo ? (
             <>
@@ -374,9 +433,10 @@ export default function ActividadDelAnio({
             </>
           )}
         </Boton>
+        )}
       </div>
 
-      {editando !== null && (
+      {editando !== null && !soloLectura && (
         <EditorInforme
           participantes={[participante]}
           participanteId={participante.id}

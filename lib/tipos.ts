@@ -27,6 +27,11 @@ export interface Participante {
   /** Tildado = llena el informe de actividad y aparece en Secretaría. */
   es_publicador?: boolean;
   activo: boolean;
+  /**
+   * Año de servicio en el que arranca la ficha (2025 = sept 2025 a ago 2026).
+   * Permite cargar también el año de servicio anterior a mano.
+   */
+  anio_servicio_inicio?: number | null;
   created_at?: string;
 }
 

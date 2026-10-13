@@ -17,6 +17,7 @@ import {
   Video,
 } from "lucide-react";
 import { Boton, Campo, Etiqueta, Input, Panel, Select } from "@/components/ui";
+import TablaAsistenciaAnio from "@/components/TablaAsistenciaAnio";
 import { supabase } from "@/lib/supabase";
 import {
   diaDeSemana,
@@ -29,6 +30,12 @@ import {
   type DatosAsistencia,
   type ErroresAsistencia,
 } from "@/lib/asistencia";
+import {
+  anioServicioActual,
+  aniosDisponibles,
+  etiquetaAnioServicio,
+  rangoFechasAnioServicio,
+} from "@/lib/anio-servicio";
 import { etiquetaMes, mesActual, ultimosMeses } from "@/lib/informes";
 
 const VACIO: DatosAsistencia = { fecha: hoyClave(), auditorio: null, zoom: null };
@@ -43,7 +50,10 @@ interface Resultado {
 export default function SecretariaAsistencias() {
   const router = useRouter();
   const [mes, setMes] = useState(() => mesActual());
+  const [anioServicio, setAnioServicio] = useState(() => anioServicioActual());
   const [filas, setFilas] = useState<AsistenciaFila[]>([]);
+  const [filasAnio, setFilasAnio] = useState<AsistenciaFila[]>([]);
+  const [anios, setAnios] = useState<number[]>([anioServicioActual()]);
   const [mesCerrado, setMesCerrado] = useState<AsistenciaMesCerrado | null>(null);
   const [cargando, setCargando] = useState(true);
   const [guardando, setGuardando] = useState(false);
@@ -52,6 +62,32 @@ export default function SecretariaAsistencias() {
   const [editandoId, setEditandoId] = useState<string | null>(null);
   const [form, setForm] = useState<DatosAsistencia>(VACIO);
   const [errores, setErrores] = useState<ErroresAsistencia>({});
+
+  /** Toda la carga del año de servicio (de una sola vez), para el resumen. */
+  const traerAnio = useCallback(async (anio: number): Promise<AsistenciaFila[]> => {
+    const { desde, hasta } = rangoFechasAnioServicio(anio);
+    const { data } = await supabase
+      .from("asistencias")
+      .select("fecha, total")
+      .gte("fecha", desde)
+      .lte("fecha", hasta)
+      .order("fecha", { ascending: true });
+    return (data as AsistenciaFila[]) || [];
+  }, []);
+
+  /** Todos los años de servicio que tienen asistencias cargadas. */
+  const traerAnios = useCallback(async (): Promise<number[]> => {
+    const { data } = await supabase.from("asistencias").select("fecha");
+    const set = new Set<number>();
+    for (const fila of (data as { fecha: string }[]) || []) {
+      if (!fila.fecha) continue;
+      const anio = Number(fila.fecha.slice(0, 4));
+      const mes = Number(fila.fecha.slice(5, 7));
+      if (!anio || !mes) continue;
+      set.add(mes >= 9 ? anio : anio - 1);
+    }
+    return aniosDisponibles([...set]);
+  }, []);
 
   const traer = useCallback(async (mesElegido: string): Promise<Resultado> => {
     const [a, c] = await Promise.all([
@@ -102,6 +138,28 @@ export default function SecretariaAsistencias() {
     };
   }, [traer, aplicar, mes]);
 
+  /** El resumen del año de servicio se mantiene al día con cada carga. */
+  const recargarResumen = useCallback(async () => {
+    const [delAnio, conDatos] = await Promise.all([
+      traerAnio(anioServicio),
+      traerAnios(),
+    ]);
+    setFilasAnio(delAnio);
+    setAnios(conDatos);
+  }, [anioServicio, traerAnio, traerAnios]);
+
+  useEffect(() => {
+    let cancelado = false;
+    Promise.all([traerAnio(anioServicio), traerAnios()]).then(([delAnio, conDatos]) => {
+      if (cancelado) return;
+      setFilasAnio(delAnio);
+      setAnios(conDatos);
+    });
+    return () => {
+      cancelado = true;
+    };
+  }, [anioServicio, traerAnio, traerAnios]);
+
   const resumen = useMemo(() => resumenPorDia(filas), [filas]);
   const promedio = resumen.diasConReunion
     ? Math.round(resumen.totalMes / resumen.diasConReunion)
@@ -142,6 +200,7 @@ export default function SecretariaAsistencias() {
     }
     reiniciarForm();
     await cargar(mes);
+    await recargarResumen();
   };
 
   const eliminar = async (id: string) => {
@@ -155,6 +214,7 @@ export default function SecretariaAsistencias() {
     }
     if (editandoId === id) reiniciarForm();
     await cargar(mes);
+    await recargarResumen();
   };
 
   const cerrarMes = async () => {
@@ -213,6 +273,33 @@ export default function SecretariaAsistencias() {
 
   return (
     <div>
+      <Panel className="mb-6 p-5">
+        <div className="mb-4 flex flex-wrap items-end justify-between gap-3 border-b border-linea pb-4">
+          <div className="w-full sm:w-64">
+            <Campo label="Año de servicio (septiembre a agosto)">
+              <Select
+                value={anioServicio}
+                onChange={(e) => setAnioServicio(Number(e.target.value))}
+              >
+                {anios.map((a) => (
+                  <option key={a} value={a}>
+                    {etiquetaAnioServicio(a)}
+                    {a === anioServicioActual() ? " (en curso)" : ""}
+                  </option>
+                ))}
+              </Select>
+            </Campo>
+          </div>
+          <Link
+            href={`/secretaria/asistencias/anio/${anioServicio}`}
+            className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-linea bg-tarjeta2 px-4 py-2.5 text-sm font-semibold transition-colors hover:border-suave"
+          >
+            <FileDown size={15} /> PDF del año de servicio
+          </Link>
+        </div>
+        <TablaAsistenciaAnio filas={filasAnio} anio={anioServicio} />
+      </Panel>
+
       <Panel className="mb-6 p-5">
         <div className="flex flex-wrap items-end gap-4">
           <Campo label="Mes de las asistencias" className="w-full sm:w-64">

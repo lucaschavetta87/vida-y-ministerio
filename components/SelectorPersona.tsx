@@ -164,6 +164,11 @@ export default function SelectorPersona({
                   <span className="flex w-full items-center justify-between gap-2">
                     <span className="min-w-0 flex-1 truncate text-sm">
                       {p.nombre_completo}
+                      {(p.genero === "NIÑO" || p.genero === "NIÑA") && (
+                        <span className="ml-1.5 rounded border border-teal/40 px-1 py-px align-middle text-[9px] font-bold text-teal">
+                          {p.genero}
+                        </span>
+                      )}
                     </span>
                     {p.clasificacion && (
                       <span className="shrink-0 rounded-full border border-teal/40 px-2 py-0.5 text-[10px] font-bold text-teal">

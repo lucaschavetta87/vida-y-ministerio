@@ -120,6 +120,136 @@ export function validarAsistencia(
   };
 }
 
+/** Una reunión entre semana (de lunes a sábado) o de fin de semana (domingo). */
+export type TipoReunion = "entre-semana" | "fin-de-semana";
+
+export function tipoDeReunion(fecha: string): TipoReunion {
+  return new Date(`${fecha}T12:00:00`).getDay() === 0 ? "fin-de-semana" : "entre-semana";
+}
+
+/** Totales de un mes: reuniones, asistentes y promedio por reunión. */
+export interface ResumenMes {
+  /** 'YYYY-MM' */
+  mes: string;
+  etiqueta: string;
+  reuniones: number;
+  total: number;
+  /** total / reuniones, con 2 decimales (0 si no hubo reuniones). */
+  promedio: number;
+  reunionesEntreSemana: number;
+  totalEntreSemana: number;
+  promedioEntreSemana: number;
+  reunionesFinSemana: number;
+  totalFinSemana: number;
+  promedioFinSemana: number;
+}
+
+function redondear(valor: number): number {
+  return Math.round(valor * 100) / 100;
+}
+
+function resumenDeUnMes(mes: string, etiqueta: string, dias: { total: number; tipo: TipoReunion }[]): ResumenMes {
+  const entre = dias.filter((d) => d.tipo === "entre-semana");
+  const fin = dias.filter((d) => d.tipo === "fin-de-semana");
+  const total = dias.reduce((s, d) => s + d.total, 0);
+  const totalEntre = entre.reduce((s, d) => s + d.total, 0);
+  const totalFin = fin.reduce((s, d) => s + d.total, 0);
+  return {
+    mes,
+    etiqueta,
+    reuniones: dias.length,
+    total,
+    promedio: dias.length ? redondear(total / dias.length) : 0,
+    reunionesEntreSemana: entre.length,
+    totalEntreSemana: totalEntre,
+    promedioEntreSemana: entre.length ? redondear(totalEntre / entre.length) : 0,
+    reunionesFinSemana: fin.length,
+    totalFinSemana: totalFin,
+    promedioFinSemana: fin.length ? redondear(totalFin / fin.length) : 0,
+  };
+}
+
+export interface ResumenAnioServicio {
+  meses: ResumenMes[];
+  totalReuniones: number;
+  totalAsistencia: number;
+  /** Promedio del año: promedio de los promedios de cada mes con reuniones. */
+  promedioAnual: number;
+  totalEntreSemana: number;
+  totalFinSemana: number;
+  /** Reuniones de entre semana (lun a sábado). */
+  reunionesEntreSemana: number;
+  reunionesFinSemana: number;
+  /** Promedio de entre semana del año = promedio de los promedios mensuales. */
+  promedioAnualEntreSemana: number;
+  /** Promedio de fin de semana del año = promedio de los promedios mensuales. */
+  promedioAnualFinSemana: number;
+}
+
+/**
+ * Resumen mes a mes de un rango de meses (un año de servicio).
+ * Los meses sin reuniones se listan igual con 0, para que se vea el hueco.
+ */
+export function resumenPorMes(
+  filas: Pick<Asistencia, "fecha" | "total">[],
+  meses: { clave: string; etiqueta: string }[],
+): ResumenAnioServicio {
+  const porDia = new Map<string, { total: number; tipo: TipoReunion }>();
+  for (const fila of filas) {
+    const actual = porDia.get(fila.fecha) || { total: 0, tipo: tipoDeReunion(fila.fecha) };
+    actual.total += fila.total;
+    porDia.set(fila.fecha, actual);
+  }
+
+  const resumenes = meses.map((m) =>
+    resumenDeUnMes(
+      m.clave,
+      m.etiqueta,
+      [...porDia.entries()]
+        .filter(([fecha]) => fecha.startsWith(m.clave))
+        .map(([, d]) => ({ total: d.total, tipo: d.tipo })),
+    ),
+  );
+
+  const conReunion = resumenes.filter((r) => r.reuniones > 0);
+  const conEntre = resumenes.filter((r) => r.reunionesEntreSemana > 0);
+  const conFin = resumenes.filter((r) => r.reunionesFinSemana > 0);
+  const totalReuniones = resumenes.reduce((s, r) => s + r.reuniones, 0);
+  const totalAsistencia = resumenes.reduce((s, r) => s + r.total, 0);
+  const totalEntre = resumenes.reduce((s, r) => s + r.totalEntreSemana, 0);
+  const totalFin = resumenes.reduce((s, r) => s + r.totalFinSemana, 0);
+  const reunionesEntre = resumenes.reduce((s, r) => s + r.reunionesEntreSemana, 0);
+  const reunionesFin = resumenes.reduce((s, r) => s + r.reunionesFinSemana, 0);
+
+  return {
+    meses: resumenes,
+    totalReuniones,
+    totalAsistencia,
+    // promedio de los promedios mensuales (los meses sin reunión no cuentan)
+    promedioAnual: conReunion.length
+      ? redondear(conReunion.reduce((s, r) => s + r.promedio, 0) / conReunion.length)
+      : 0,
+    totalEntreSemana: totalEntre,
+    totalFinSemana: totalFin,
+    reunionesEntreSemana: reunionesEntre,
+    reunionesFinSemana: reunionesFin,
+    promedioAnualEntreSemana: conEntre.length
+      ? redondear(conEntre.reduce((s, r) => s + r.promedioEntreSemana, 0) / conEntre.length)
+      : 0,
+    promedioAnualFinSemana: conFin.length
+      ? redondear(conFin.reduce((s, r) => s + r.promedioFinSemana, 0) / conFin.length)
+      : 0,
+  };
+}
+
+/** '100.5' -> '100,50' */
+export function numeroPromedio(valor: number): string {
+  return valor.toLocaleString("es-AR", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+}
+
 /** Resumen por día de un mes: filas ordenadas con total general. */
 export function resumenPorDia(filas: Asistencia[]): {
   dias: { fecha: string; auditorio: number; zoom: number; total: number }[];

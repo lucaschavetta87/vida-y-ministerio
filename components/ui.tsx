@@ -5,6 +5,7 @@ import type {
   SelectHTMLAttributes,
   TextareaHTMLAttributes,
 } from "react";
+import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export function Panel({
@@ -132,5 +133,54 @@ export function Titulo({ children }: { children: ReactNode }) {
     <h1 className="mb-6 text-2xl font-black tracking-tight sm:text-3xl">
       {children}
     </h1>
+  );
+}
+
+/** Ventana emergente con fondo oscuro, para ver o editar algo puntual. */
+export function Modal({
+  titulo,
+  subtitulo,
+  onCerrar,
+  children,
+  className,
+}: {
+  titulo: string;
+  subtitulo?: string;
+  onCerrar: () => void;
+  children: ReactNode;
+  className?: string;
+}) {
+  return (
+    <div
+      className="no-print fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 p-4 backdrop-blur-sm sm:p-8"
+      onClick={onCerrar}
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={titulo}
+        onClick={(e) => e.stopPropagation()}
+        className={cn(
+          "w-full rounded-2xl border border-linea bg-tarjeta shadow-2xl",
+          className,
+        )}
+      >
+        <div className="flex items-start justify-between gap-3 border-b border-linea px-6 py-4">
+          <div className="min-w-0">
+            <h2 className="truncate text-lg font-black">{titulo}</h2>
+            {subtitulo && <p className="text-xs text-suave">{subtitulo}</p>}
+          </div>
+          <button
+            type="button"
+            onClick={onCerrar}
+            aria-label="Cerrar"
+            className="cursor-pointer rounded-lg p-2 text-suave transition-colors hover:bg-tarjeta2 hover:text-texto"
+          >
+            <X size={18} />
+          </button>
+        </div>
+        <div className="p-6">{children}</div>
+      </div>
+    </div>
   );
 }

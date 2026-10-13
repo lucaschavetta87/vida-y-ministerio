@@ -192,6 +192,15 @@ export default function AsignacionesMecanicasPage() {
     [participantes],
   );
 
+  /** Los micros también los pueden pasar los niños (varones). */
+  const paraMicrofonos = useMemo(
+    () =>
+      participantes.filter(
+        (p) => p.activo && (p.genero === "HOMBRE" || p.genero === "NIÑO"),
+      ),
+    [participantes],
+  );
+
   const ancianos = useMemo(() => hombres.filter((p) => p.clasificacion === "ANCIANO"), [hombres]);
   const ancianosOServidores = useMemo(
     () => hombres.filter((p) => p.clasificacion === "ANCIANO" || p.clasificacion === "SIERVO_MINISTERIAL"),
@@ -214,9 +223,13 @@ export default function AsignacionesMecanicasPage() {
    * participante (o el permiso especial de la tarea).
    */
   const aptos = useCallback(
-    (slug: string, permiso?: (p: Participante) => boolean) => {
+    (
+      slug: string,
+      permiso?: (p: Participante) => boolean,
+      base: Participante[] = hombres,
+    ) => {
       const conRol = idsRol(slug);
-      return hombres.filter(
+      return base.filter(
         (p) => conRol.has(p.id) || (permiso ? permiso(p) : false),
       );
     },
@@ -295,10 +308,15 @@ export default function AsignacionesMecanicasPage() {
 
   const aptosAcomodadorPuerta = useMemo(() => aptos("acomodador_puerta"), [aptos]);
   const aptosAcomodadorAuditorio = useMemo(() => aptos("acomodador_auditorio"), [aptos]);
-  const aptosMicrofonista = useMemo(
-    () => [...aptos("microfonista_1"), ...aptos("microfonista_2")],
-    [aptos],
-  );
+  const aptosMicrofonista = useMemo(() => {
+    const vistos = new Map<string, Participante>();
+    for (const slug of ["microfonista_1", "microfonista_2"]) {
+      for (const p of aptos(slug, undefined, paraMicrofonos)) vistos.set(p.id, p);
+    }
+    return [...vistos.values()].sort((a, b) =>
+      a.nombre_completo.localeCompare(b.nombre_completo, "es"),
+    );
+  }, [aptos, paraMicrofonos]);
   const aptosAudioVideo = useMemo(() => aptos("audio_video"), [aptos]);
   const aptosPlataforma = useMemo(() => aptos("plataforma"), [aptos]);
   const aptosOracion = useMemo(() => aptos("oracion"), [aptos]);

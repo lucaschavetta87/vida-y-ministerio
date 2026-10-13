@@ -14,11 +14,14 @@ import {
   UserRound,
   Users,
 } from "lucide-react";
-import { Boton, Etiqueta, Panel, Titulo } from "@/components/ui";
+import { Boton, Etiqueta, Modal, Panel, Titulo } from "@/components/ui";
 import ParticipanteForm from "@/components/ParticipanteForm";
+import ActividadDelAnio from "@/components/ActividadDelAnio";
 import GestionRoles from "@/components/GestionRoles";
 import { supabase } from "@/lib/supabase";
-import { etiquetaMes, mesAnterior, type Informe, type MarcaInforme } from "@/lib/informes";
+import { anioServicioActual, etiquetaAnioServicio } from "@/lib/anio-servicio";
+import { etiquetaMes, mesAnterior } from "@/lib/informes";
+import type { Informe, MarcaInforme } from "@/lib/informes";
 import type { Asignacion, Participante, Rol } from "@/lib/tipos";
 
 const AVISO_SUPABASE =
@@ -41,8 +44,8 @@ async function traerDatos(): Promise<DatosParticipantes> {
     supabase.from("participantes").select("*").order("nombre_completo"),
     supabase.from("roles").select("*").order("orden"),
     supabase.from("participante_roles").select("*"),
-    supabase.from("informes").select("*").eq("mes", mesInforme),
-    supabase.from("marcas_informe").select("*").eq("mes", mesInforme),
+    supabase.from("informes").select("participante_id, mes").eq("mes", mesInforme),
+    supabase.from("marcas_informe").select("participante_id, mes").eq("mes", mesInforme),
   ]);
   return {
     participantes: (p.data as Participante[]) || [],
@@ -68,6 +71,10 @@ export default function PaginaParticipantes() {
   const [filtroIrregulares, setFiltroIrregulares] = useState(false);
   const [formAbierto, setFormAbierto] = useState(false);
   const [editando, setEditando] = useState<Participante | null>(null);
+  /** Persona cuya actividad se está viendo (solo lectura). */
+  const [viendo, setViendo] = useState<Participante | null>(null);
+  /** Con qué pestaña se abre el formulario. */
+  const [pestanaForm, setPestanaForm] = useState<"ficha" | "actividad">("ficha");
   const [rolesAbierto, setRolesAbierto] = useState(false);
   const [aviso, setAviso] = useState("");
 
@@ -105,7 +112,7 @@ export default function PaginaParticipantes() {
     };
   }, [aplicar]);
 
-  /** Ya informaron el mes anterior (mes que se está informando). */
+  /** Ya informou el mes que se está informando (SOLO el mes en curso). */
   const informaron = useMemo(() => {
     const ids = new Set<string>();
     informesMes.forEach((i) => ids.add(i.participante_id));
@@ -113,20 +120,24 @@ export default function PaginaParticipantes() {
     return ids;
   }, [informesMes, marcasMes]);
 
-  /** Activos, publicadores y sin informe ni marca = irregulares del mes. */
+  /** Activos y publicadores sin informe del mes en curso = irregulares. */
   const irregulares = useMemo(() => {
     if (!datosInformesOk) return new Set<string>();
     return new Set(
       participantes
         .filter(
           (p) =>
-            p.activo &&
-            p.es_publicador !== false &&
-            !informaron.has(p.id),
+            p.activo && p.es_publicador !== false && !informaron.has(p.id),
         )
         .map((p) => p.id),
     );
   }, [participantes, informaron, datosInformesOk]);
+
+  /** Todas las personas dadas de baja (el estado se cambia a mano). */
+  const inactivos = useMemo(
+    () => participantes.filter((p) => !p.activo).map((p) => p.id),
+    [participantes],
+  );
 
   const visibles = useMemo(() => {
     const q = busqueda.trim().toLowerCase();
@@ -208,7 +219,7 @@ export default function PaginaParticipantes() {
         error = reintento.error;
         if (!error)
           avisoColumnas =
-            "Faltan las columnas nuevas en la base (anios_bautizado, es_secretario, miembro_comite_asamblea, es_publicador). Corre el SQL de migración.";
+            "Faltan las columnas nuevas en la base (anios_bautizado, es_secretario, miembro_comite_asamblea, es_publicador, anio_servicio_inicio). Corre el SQL de migración.";
       }
       if (error) return traducir(error.message);
     } else {
@@ -227,7 +238,7 @@ export default function PaginaParticipantes() {
         error = reintento.error;
         if (!error)
           avisoColumnas =
-            "Faltan las columnas nuevas en la base (anios_bautizado, es_secretario, miembro_comite_asamblea, es_publicador). Corre el SQL de migración.";
+            "Faltan las columnas nuevas en la base (anios_bautizado, es_secretario, miembro_comite_asamblea, es_publicador, anio_servicio_inicio). Corre el SQL de migración.";
       }
       if (error) return traducir(error.message);
       if (!data) return "No se pudo guardar el participante.";
@@ -300,7 +311,7 @@ export default function PaginaParticipantes() {
     <div>
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <Titulo>Participantes</Titulo>
+          <Titulo>Personas de la congregación</Titulo>
           <p className="-mt-4 mb-4 text-sm text-suave">
             {participantes.filter((p) => p.activo).length} activos ·{" "}
             {roles.length} roles de asignación
@@ -313,10 +324,11 @@ export default function PaginaParticipantes() {
           <Boton
             onClick={() => {
               setEditando(null);
+              setPestanaForm("ficha");
               setFormAbierto(true);
             }}
           >
-            <Plus size={16} /> Nuevo participante
+            <Plus size={16} /> Nueva persona
           </Boton>
         </div>
       </div>
@@ -339,9 +351,10 @@ export default function PaginaParticipantes() {
               ? "border-teal bg-teal/10 text-teal"
               : "border-linea text-suave hover:border-suave")
           }
-          title="Solo los participantes dados de baja"
+          title="Personas dadas de baja (el estado se cambia a mano, con el botón de la fila o el de la ficha)"
         >
           INACTIVOS
+          {inactivos.length ? ` (${inactivos.length})` : ""}
         </button>
         <button
           onClick={() => setFiltroIrregulares((v) => !v)}
@@ -352,7 +365,7 @@ export default function PaginaParticipantes() {
               ? "border-rojo bg-rojo/10 text-rojo"
               : "border-linea text-suave hover:border-suave")
           }
-          title={`Publicadores activos sin informe de ${etiquetaMes(mesAnterior())}`}
+          title={`Activos que no entregaron el informe de ${etiquetaMes(mesAnterior())}`}
         >
           IRREGULARES{irregulares.size ? ` (${irregulares.size})` : ""}
         </button>
@@ -384,10 +397,10 @@ export default function PaginaParticipantes() {
           <Users size={30} className="mx-auto mb-3 text-suave" />
           <p className="text-sm text-suave">
             {participantes.length === 0
-              ? "Todavía no hay participantes cargados. Empezá con el botón “Nuevo participante”."
+              ? "Todavía no hay personas cargadas. Empezá con el botón “Nueva persona”."
               : filtroInactivos || filtroIrregulares
-                ? "Ningún participante coincide con los filtros aplicados."
-                : "Ningún participante coincide con la búsqueda."}
+                ? "Ninguna persona coincide con los filtros aplicados."
+                : "Ninguna persona coincide con la búsqueda."}
           </p>
         </Panel>
       ) : (
@@ -395,7 +408,7 @@ export default function PaginaParticipantes() {
           <table className="w-full min-w-[820px] text-left text-sm">
             <thead>
               <tr className="border-b border-linea text-[11px] tracking-widest text-suave uppercase">
-                <th className="px-4 py-3 font-bold">Participante</th>
+                <th className="px-4 py-3 font-bold">Persona</th>
                 <th className="px-4 py-3 font-bold">Género</th>
                 <th className="px-4 py-3 font-bold">Contacto</th>
                 <th className="px-4 py-3 font-bold">Bautismo</th>
@@ -419,7 +432,14 @@ export default function PaginaParticipantes() {
                     }
                   >
                     <td className="px-4 py-3">
-                      <div className="font-semibold">{p.nombre_completo}</div>
+                      <button
+                        type="button"
+                        onClick={() => setViendo(p)}
+                        title="Ver el año de servicio"
+                        className="cursor-pointer text-left font-semibold hover:text-teal hover:underline"
+                      >
+                        {p.nombre_completo}
+                      </button>
                       {p.edad !== null && p.edad !== undefined && (
                         <div className="text-[11px] text-suave">Edad: {p.edad}</div>
                       )}
@@ -462,7 +482,10 @@ export default function PaginaParticipantes() {
                           No informa (no es publicador)
                         </div>
                       )}
-                      {irregulares.has(p.id) && (
+                      {!p.activo && (
+                        <div className="text-[11px] font-semibold text-rojo">INACTIVO</div>
+                      )}
+                      {p.activo && irregulares.has(p.id) && (
                         <div className="text-[11px] font-semibold text-rojo">
                           Sin informe de {etiquetaMes(mesAnterior())}
                         </div>
@@ -476,6 +499,9 @@ export default function PaginaParticipantes() {
                       {p.estado_civil && (
                         <div className="text-[11px] text-suave">Estado: {p.estado_civil}</div>
                       )}
+                      <div className="text-[11px] text-suave">
+                        Ficha desde: {etiquetaAnioServicio(p.anio_servicio_inicio ?? anioServicioActual())}
+                      </div>
                       {p.conyuge_id && (
                         <div className="text-[11px] text-suave">
                           Cónyuge: {participantes.find((m) => m.id === p.conyuge_id)?.nombre_completo || "—"}
@@ -527,13 +553,25 @@ export default function PaginaParticipantes() {
                       <div className="flex justify-end gap-1">
                         <button
                           onClick={() => {
+                            setPestanaForm("ficha");
                             setEditando(p);
                             setFormAbierto(true);
                           }}
                           className="cursor-pointer rounded-lg border border-linea p-2 text-suave transition-colors hover:border-teal hover:text-teal"
-                          title="Editar"
+                          title="Editar la ficha"
                         >
                           <Pencil size={14} />
+                        </button>
+                        <button
+                          onClick={() => {
+                            setPestanaForm("actividad");
+                            setEditando(p);
+                            setFormAbierto(true);
+                          }}
+                          className="cursor-pointer rounded-lg border border-linea p-2 text-suave transition-colors hover:border-teal hover:text-teal"
+                          title="Editar la actividad mes por mes"
+                        >
+                          <CalendarCheck size={14} />
                         </button>
                         <button
                           onClick={() => alternarActivo(p)}
@@ -566,8 +604,11 @@ export default function PaginaParticipantes() {
 
       <div className="mt-4 flex flex-wrap gap-4 text-xs text-suave">
         <span className="flex items-center gap-1.5">
-          <CalendarCheck size={13} /> El parentesco obliga a elegir un mayor
-          cargado para NIÑO/NIÑA
+          <CalendarCheck size={13} /> Tocá el nombre para ver el año de servicio; con el ícono de
+          calendario editás la actividad mes por mes
+        </span>
+        <span className="flex items-center gap-1.5">
+          <UserRound size={13} /> El parentesco obliga a elegir un mayor cargado para NIÑO/NIÑA
         </span>
         <span className="flex items-center gap-1.5">
           <SlidersHorizontal size={13} /> Las asignaciones tildadas acá son las
@@ -581,8 +622,36 @@ export default function PaginaParticipantes() {
         </span>
       </div>
 
+      {viendo && (
+        <Modal
+          titulo={viendo.nombre_completo}
+          subtitulo="Año de servicio: de septiembre a agosto. Para corregir algo, usá Editar actividad."
+          onCerrar={() => setViendo(null)}
+        >
+          <ActividadDelAnio
+            participante={viendo}
+            soloLectura
+            onCambiarActivo={async () => undefined}
+          />
+          <div className="mt-4 flex justify-end border-t border-linea pt-4">
+            <Boton
+              onClick={() => {
+                const persona = viendo;
+                setViendo(null);
+                setPestanaForm("actividad");
+                setEditando(persona);
+                setFormAbierto(true);
+              }}
+            >
+              <CalendarCheck size={15} /> Editar actividad
+            </Boton>
+          </div>
+        </Modal>
+      )}
+
       {formAbierto && (
         <ParticipanteForm
+          pestanaInicial={pestanaForm}
           participante={editando}
           roles={roles}
           mayores={mayores}
@@ -620,6 +689,7 @@ const COLUMNAS_NUEVAS = [
   "es_secretario",
   "miembro_comite_asamblea",
   "es_publicador",
+  "anio_servicio_inicio",
 ];
 
 function faltaColumnaNueva(mensaje: string): boolean {

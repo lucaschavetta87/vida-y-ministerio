@@ -8,7 +8,7 @@ import Salir from "@/components/Salir";
 import { cn } from "@/lib/utils";
 
 const enlaces = [
-  { href: "/participantes", texto: "Participantes", Icono: Users },
+  { href: "/participantes", texto: "Personas de la congregación", Icono: Users },
   { href: "/reunion", texto: "Vida y Ministerio", Icono: CalendarDays },
   { href: "/asignaciones-mecanicas", texto: "Asignaciones Mecánicas", Icono: Wrench },
   { href: "/secretaria", texto: "Secretaría", Icono: ClipboardList },

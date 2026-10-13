@@ -12,13 +12,14 @@ import {
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import {
-  MESES_CORTO,
-  claveMes,
-  etiquetaMes,
-  mesAnterior,
-  type Informe,
-  type MarcaInforme,
-} from "@/lib/informes";
+  anioServicioActual,
+  aniosDisponibles,
+  etiquetaAnioServicio,
+  mesesDelAnioServicio,
+  rangoAnioServicio,
+  rangoLegible,
+} from "@/lib/anio-servicio";
+import { etiquetaMes, mesAnterior, type Informe, type MarcaInforme } from "@/lib/informes";
 import type { Participante } from "@/lib/tipos";
 
 /** Qué se imprime en la celda de cada mes. */
@@ -43,9 +44,8 @@ function celda(inf: Informe | null, marcada: boolean): { texto: string; clase: s
 
 export default function PdfActividadAnual() {
   const router = useRouter();
-  const anioActual = new Date().getFullYear();
-  const [anio, setAnio] = useState(anioActual);
-  const [anios, setAnios] = useState<number[]>([anioActual]);
+  const [anio, setAnio] = useState(() => anioServicioActual());
+  const [anios, setAnios] = useState<number[]>([anioServicioActual()]);
   const [participantes, setParticipantes] = useState<Participante[]>([]);
   const [informes, setInformes] = useState<Informe[]>([]);
   const [marcas, setMarcas] = useState<MarcaInforme[]>([]);
@@ -53,10 +53,10 @@ export default function PdfActividadAnual() {
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState("");
 
+  const { desde, hasta } = rangoAnioServicio(anio);
+
   useEffect(() => {
     let cancelado = false;
-    const desde = `${anio}-01`;
-    const hasta = `${anio}-12`;
     Promise.all([
       supabase.from("participantes").select("*").order("nombre_completo"),
       supabase.from("informes").select("*").gte("mes", desde).lte("mes", hasta),
@@ -72,19 +72,20 @@ export default function PdfActividadAnual() {
       setParticipantes((p.data as Participante[]) || []);
       setInformes((i.data as Informe[]) || []);
       setMarcas((m.data as MarcaInforme[]) || []);
-      const aniosConDatos = new Set<number>([anioActual]);
+      const conDatos = new Set<number>();
       ((todos.data as { mes: string }[]) || []).forEach((r) => {
         const a = Number(r.mes.slice(0, 4));
-        if (a) aniosConDatos.add(a);
+        const mes = Number(r.mes.slice(5, 7));
+        if (a && mes) conDatos.add(mes >= 9 ? a : a - 1);
       });
-      setAnios([...aniosConDatos].sort((a, b) => b - a));
+      setAnios(aniosDisponibles([...conDatos]));
       setError("");
       setCargando(false);
     });
     return () => {
       cancelado = true;
     };
-  }, [anio, anioActual]);
+  }, [desde, hasta]);
 
   const filas = useMemo(() => {
     const infPorMes = new Map<string, Informe>();
@@ -102,10 +103,10 @@ export default function PdfActividadAnual() {
         filtro ? p.nombre_completo.toLowerCase().includes(filtro.toLowerCase()) : true,
       )
       .map((p) => {
-        const celdas = MESES_CORTO.map((corto, indice) => {
-          const clave = claveMes(anio, indice);
+        const celdas = mesesDelAnioServicio(anio).map((mes) => {
+          const clave = mes.clave;
           return {
-            corto,
+            corto: mes.corto,
             clave,
             ...celda(
               infPorMes.get(`${p.id}|${clave}`) || null,
@@ -169,7 +170,8 @@ export default function PdfActividadAnual() {
           >
             {anios.map((a) => (
               <option key={a} value={a}>
-                {a}
+                {etiquetaAnioServicio(a)}
+                {a === anioServicioActual() ? " (en curso)" : ""}
               </option>
             ))}
           </select>
@@ -184,10 +186,10 @@ export default function PdfActividadAnual() {
 
       <header className="mb-4 border-b-2 border-teal pb-3">
         <h1 className="text-xl font-black tracking-tight">
-          Informe de actividad · {anio}
+          Informe de actividad · Año de servicio {etiquetaAnioServicio(anio)}
         </h1>
         <p className="text-xs text-suave">
-          ESTE LAS HERAS · {filas.length} personas · generado el{" "}
+          ESTE LAS HERAS · {rangoLegible(anio)} · {filas.length} personas · generado el{" "}
           {new Date().toLocaleDateString("es-AR")}
         </p>
         <p className="mt-1 text-xs text-suave">
@@ -212,9 +214,9 @@ export default function PdfActividadAnual() {
           <thead>
             <tr className="bg-tarjeta2">
               <th className="border border-linea px-1.5 py-1.5 text-left">Nombre</th>
-              {MESES_CORTO.map((m) => (
-                <th key={m} className="border border-linea px-1 py-1.5 font-bold">
-                  {m}
+              {mesesDelAnioServicio(anio).map((m) => (
+                <th key={m.clave} className="border border-linea px-1 py-1.5 font-bold">
+                  {m.corto}
                 </th>
               ))}
               <th className="border border-linea px-1.5 py-1.5">Horas</th>

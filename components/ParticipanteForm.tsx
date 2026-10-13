@@ -5,6 +5,10 @@ import { Check, Loader2, Save, X } from "lucide-react";
 import { Boton, Campo, Etiqueta, Input, Select } from "@/components/ui";
 import ActividadDelAnio from "@/components/ActividadDelAnio";
 import { GENEROS, type Clasificacion, type Genero, type Participante, type Rol } from "@/lib/tipos";
+import {
+  anioServicioActual,
+  etiquetaAnioServicio,
+} from "@/lib/anio-servicio";
 import { cn } from "@/lib/utils";
 
 type Pestaña = "ficha" | "asignaciones" | "asignaciones_mecanicas" | "actividad";
@@ -37,7 +41,11 @@ const nuevaFicha = (): Omit<Participante, "id"> & { id?: string } => ({
   lector_atalaya_aprobado: false,
   es_publicador: true,
   activo: true,
+  anio_servicio_inicio: anioServicioActual(),
 });
+
+/** Años de servicio que se pueden elegir al crear una ficha. */
+const ANIOS_FICHA = Array.from({ length: 6 }, (_, i) => anioServicioActual() - i);
 
 export default function ParticipanteForm({
   participante,
@@ -47,11 +55,14 @@ export default function ParticipanteForm({
   onGuardar,
   onCerrar,
   onCambiarActivo,
+  pestanaInicial = "ficha",
 }: {
   participante: Participante | null;
   roles: Rol[];
   mayores: Participante[];
   asignacionesIniciales: string[];
+  /** Con qué pestaña se abre (por defecto la ficha). */
+  pestanaInicial?: Pestaña;
   onGuardar: (
     datos: Omit<Participante, "id"> & { id?: string },
     roleIds: string[],
@@ -64,7 +75,7 @@ export default function ParticipanteForm({
     ...(participante || {}),
   }));
   const [roleIds, setRoleIds] = useState<string[]>(asignacionesIniciales);
-  const [pestaña, setPestaña] = useState<Pestaña>("ficha");
+  const [pestaña, setPestaña] = useState<Pestaña>(pestanaInicial);
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState("");
 
@@ -165,6 +176,27 @@ export default function ParticipanteForm({
               </Campo>
 
               <div className="grid gap-4 sm:grid-cols-2">
+                <Campo
+                  label="Año de servicio"
+                  hint="De qué año de servicio arranca la ficha (septiembre a agosto). Elegí el anterior para cargarlo también a mano."
+                >
+                  <Select
+                    value={ficha.anio_servicio_inicio ?? anioServicioActual()}
+                    onChange={(e) =>
+                      set(
+                        "anio_servicio_inicio",
+                        e.target.value === "" ? null : Number(e.target.value),
+                      )
+                    }
+                  >
+                    {ANIOS_FICHA.map((a) => (
+                      <option key={a} value={a}>
+                        {etiquetaAnioServicio(a)}
+                        {a === anioServicioActual() ? " (en curso)" : ""}
+                      </option>
+                    ))}
+                  </Select>
+                </Campo>
                 <Campo label="Género *">
                   <Select
                     value={ficha.genero}
@@ -363,7 +395,7 @@ export default function ParticipanteForm({
           ) : pestaña === "asignaciones_mecanicas" ? (
             <div className="flex flex-col gap-2">
               <p className="text-sm text-suave mb-3">
-                Asignaciones mecánicas (Acomodadores, Micrófonistas, Audio y Video, Plataforma, Retiro de Donaciones, Limpieza, Oración Final)
+                Asignaciones mecánicas (Acomodadores, Micrófonos, Audio y Video, Plataforma, Retiro de Donaciones, Oración Final)
               </p>
               {ficha.genero === "HOMBRE" && (
                 <>
@@ -395,7 +427,6 @@ export default function ParticipanteForm({
                     "audio_video",
                     "plataforma",
                     "retiro_donaciones",
-                    "limpieza",
                     "oracion_fin",
                   ].includes(r.slug),
                 )
