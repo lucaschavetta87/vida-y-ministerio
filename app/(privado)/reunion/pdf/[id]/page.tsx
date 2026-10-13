@@ -42,19 +42,19 @@ const SECCION_ESTILO: Record<
     texto: "text-[#1c7a72]",
     barra: "bg-[#1c7a72]",
     fondo: "bg-[#e6f2f0]",
-    icono: <Gem size={11} className="text-white" />,
+    icono: <Gem size={13} className="text-white" />,
   },
   "SEAMOS MEJORES MAESTROS": {
     texto: "text-[#b8770f]",
     barra: "bg-[#b8770f]",
     fondo: "bg-[#fbf0dd]",
-    icono: <Wheat size={11} className="text-white" />,
+    icono: <Wheat size={13} className="text-white" />,
   },
   "NUESTRA VIDA CRISTIANA": {
     texto: "text-[#a03028]",
     barra: "bg-[#a03028]",
     fondo: "bg-[#fbeae8]",
-    icono: <HeartHandshake size={11} className="text-white" />,
+    icono: <HeartHandshake size={13} className="text-white" />,
   },
 };
 
@@ -65,6 +65,8 @@ export default function PaginaPdfReunion() {
   const [reunion, setReunion] = useState<Reunion | null>(null);
   const [partes, setPartes] = useState<ReunionParte[]>([]);
   const [participantes, setParticipantes] = useState<Participante[]>([]);
+  /** Id del presidente (de la reunión o, si no hay, de Asignaciones Mecánicas). */
+  const [presidenteId, setPresidenteId] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [cargando, setCargando] = useState(true);
 
@@ -72,7 +74,7 @@ export default function PaginaPdfReunion() {
     if (!id) return;
     let cancelado = false;
     const cargar = async () => {
-      const [r, p, pt] = await Promise.all([
+      const [r, p, pt, roles, ram] = await Promise.all([
         supabase.from("reuniones").select("*").eq("id", id).single(),
         supabase
           .from("reunion_partes")
@@ -80,6 +82,12 @@ export default function PaginaPdfReunion() {
           .eq("reunion_id", id)
           .order("orden"),
         supabase.from("participantes").select("*"),
+        supabase.from("roles").select("id, slug"),
+        supabase
+          .from("reunion_asignaciones_mecanicas")
+          .select("presidente_fin_semana_id")
+          .eq("reunion_id", id)
+          .maybeSingle(),
       ]);
       if (cancelado) return;
       const fallo = r.error || p.error || pt.error;
@@ -89,6 +97,26 @@ export default function PaginaPdfReunion() {
         setReunion(r.data as Reunion);
         setPartes((p.data as ReunionParte[]) || []);
         setParticipantes((pt.data as Participante[]) || []);
+
+        // el presidente es el que se elige arriba en la pantalla de la
+        // reunión (rol "Presidente": Palabras de introducción/conclusión)
+        const rolPresidente = ((roles.data as { id: string; slug: string }[]) || []).find(
+          (x) => x.slug === "presidente",
+        );
+        const partesReunion = (p.data as ReunionParte[]) || [];
+        const deLaReunion = rolPresidente
+          ? partesReunion
+              .filter((x) => x.role_id === rolPresidente.id)
+              .flatMap((x) => x.participante_ids || [])[0]
+          : null;
+
+        // si no está, se usa el que quedó cargado en Asignaciones Mecánicas
+        setPresidenteId(
+          deLaReunion ||
+            ((ram.data as { presidente_fin_semana_id?: string | null }) || {})
+              .presidente_fin_semana_id ||
+            null,
+        );
       }
       setCargando(false);
     };
@@ -108,9 +136,6 @@ export default function PaginaPdfReunion() {
     participantes.forEach((p) => (mapa[p.id] = p.nombre_completo));
     return mapa;
   }, [participantes]);
-
-  const asignadas = partes.filter((p) => (p.participante_ids || []).length > 0)
-    .length;
 
   const nombreDe = (id: string | null | undefined) =>
     id ? nombres[id] || "—" : null;
@@ -149,6 +174,41 @@ export default function PaginaPdfReunion() {
       </span>
     );
   };
+
+  /**
+   * Letra grande para que la guía ocupe la hoja A4 entera. Si la reunión
+   * tiene muchas partes se achica un poco para que no se corte en dos.
+   */
+  const TAM = useMemo(() => {
+    const muchas = partes.length > 16;
+    const media = partes.length > 13;
+    if (muchas)
+      return {
+        titulo: 12,
+        nombre: 11.5,
+        seccion: 11,
+        lector: 11.5,
+        separacion: 6,
+        hueco: 10,
+      };
+    if (media)
+      return {
+        titulo: 13.5,
+        nombre: 13,
+        seccion: 12,
+        lector: 12.5,
+        separacion: 8,
+        hueco: 12,
+      };
+    return {
+      titulo: 16.5,
+      nombre: 16,
+      seccion: 15,
+      lector: 15.5,
+      separacion: 16,
+      hueco: 16,
+    };
+  }, [partes.length]);
 
   const bloques = useMemo(() => {
     const salida: {
@@ -210,14 +270,23 @@ export default function PaginaPdfReunion() {
       <header className="mb-3 border-b-2 border-texto pb-2">
         <div className="flex flex-wrap items-end justify-between gap-2">
           <div>
-            <h1 className="text-lg leading-tight font-black tracking-wide uppercase">
+            <h1 className="text-2xl leading-tight font-black tracking-wide uppercase">
               Guia Vida y Ministerio Cristianos
             </h1>
-            <p className="text-sm font-semibold">{reunion.titulo}</p>
+            <p className="text-lg font-semibold">{reunion.titulo}</p>
           </div>
-          <p className="text-xs font-semibold text-suave">
-            {reunion.cita_biblica || ""}
-          </p>
+          <div className="text-right text-sm leading-snug font-semibold">
+            <p>{reunion.cita_biblica || ""}</p>
+            <p>
+              {fechaLarga(reunion.fecha_inicio)} → {fechaLarga(reunion.fecha_fin)}
+            </p>
+            <p>
+              Presidente:{" "}
+              <span className="font-bold">
+                {presidenteId ? nombres[presidenteId] || "—" : "—"}
+              </span>
+            </p>
+          </div>
         </div>
       </header>
 
@@ -228,10 +297,10 @@ export default function PaginaPdfReunion() {
           return (
             <Fragment key={`${i}-${bloque.clave}`}>
               {estilo && (
-                <div className="mt-4 mb-1.5 flex items-center gap-2 first:mt-0">
+                <div className="mt-6 mb-2 flex items-center gap-2 first:mt-0">
                   <span
                     className={cn(
-                      "flex h-4 w-4 items-center justify-center rounded-[2px]",
+                      "flex h-5 w-5 items-center justify-center rounded-[2px]",
                       estilo.fondo.replace("bg-", "text-"),
                       estilo.texto,
                     )}
@@ -239,8 +308,9 @@ export default function PaginaPdfReunion() {
                     {estilo.icono}
                   </span>
                   <h2
+                    style={{ fontSize: TAM.seccion }}
                     className={cn(
-                      "text-[11px] font-black tracking-[0.1em] uppercase",
+                      "font-black tracking-[0.1em] uppercase",
                       estilo.texto,
                     )}
                   >
@@ -254,7 +324,11 @@ export default function PaginaPdfReunion() {
               {bloque.items.map((p) => {
                 if (p.tipo !== "item") {
                   return (
-                    <p key={p.id} className="mb-1 text-[11px] leading-snug">
+                    <p
+                      key={p.id}
+                      style={{ fontSize: TAM.titulo }}
+                      className="leading-snug"
+                    >
                       <span className="font-semibold">♪ {p.titulo}</span>
                       {p.duracion && (
                         <span className="text-suave"> {p.duracion}</span>
@@ -266,21 +340,31 @@ export default function PaginaPdfReunion() {
                   );
                 }
                 return (
-                  <div key={p.id} className="mb-1.5 break-inside-avoid">
-                    <p className="text-[11.5px] leading-snug">
-                      <span className="font-semibold">{p.titulo}</span>
+                  <div
+                    key={p.id}
+                    style={{ marginBottom: TAM.separacion }}
+                    className="break-inside-avoid"
+                  >
+                    <p style={{ fontSize: TAM.titulo }} className="leading-snug">
+                      <span className="font-bold">{p.titulo}</span>
                       {p.duracion && (
                         <span className="text-suave"> {p.duracion}</span>
                       )}
+                    </p>
+                    <div
+                      style={{ fontSize: TAM.nombre }}
+                      className="mt-0.5 flex flex-wrap items-baseline gap-x-4 pl-4"
+                    >
+                      {personasDe(p) || (
+                        <span
+                          style={{ height: TAM.hueco, width: 288 }}
+                          className="inline-block border-b border-dashed border-borde"
+                        />
+                      )}
                       {p.lector_id && (
-                        <span className="ml-1 text-[10px] text-suave">
+                        <span style={{ fontSize: TAM.lector }} className="font-bold">
                           Lector: {nombres[p.lector_id] || "—"}
                         </span>
-                      )}
-                    </p>
-                    <div className="mt-0.5 pl-4 text-[11px]">
-                      {personasDe(p) || (
-                        <span className="inline-block h-2.5 w-44 border-b border-dashed border-borde" />
                       )}
                     </div>
                   </div>
@@ -291,10 +375,7 @@ export default function PaginaPdfReunion() {
         })}
       </div>
 
-      <p className="mt-4 text-[10px] text-suave">
-        {asignadas} de {partes.length} partes con participante asignado ·{" "}
-        {fechaLarga(reunion.fecha_inicio)} → {fechaLarga(reunion.fecha_fin)}
-      </p>
+
     </div>
   );
 }
