@@ -1,3 +1,4 @@
+import { edadDe } from "./fechas";
 import { supabase } from "@/lib/supabase";
 import {
   etiquetaMes,
@@ -16,6 +17,7 @@ type PersonaBasica = {
   nombre_completo: string;
   genero: Coincidencia["genero"];
   edad: number | null;
+  fecha_nacimiento: string | null;
   clasificacion: Coincidencia["clasificacion"];
   es_publicador?: boolean;
 };
@@ -57,7 +59,7 @@ export async function traerPersonaPorId(
  * columna es_publicador (migración pendiente) la trae sin ella.
  */
 async function candidatos(): Promise<{ personas: PersonaBasica[]; conPublicador: boolean }> {
-  const columnas = "id, nombre_completo, genero, edad, clasificacion";
+  const columnas = "id, nombre_completo, genero, edad, fecha_nacimiento, clasificacion";
 
   const conColumna = await supabase
     .from("participantes")
@@ -103,7 +105,7 @@ export async function buscarPorNombre(
     id: elemento.id,
     nombre: elemento.nombre_completo,
     genero: elemento.genero,
-    edad: elemento.edad,
+    edad: edadDe(elemento),
     clasificacion: elemento.clasificacion,
     puntaje,
   }));

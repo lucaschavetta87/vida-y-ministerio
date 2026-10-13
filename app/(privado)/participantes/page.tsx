@@ -31,6 +31,7 @@ import {
 } from "@/lib/anio-servicio";
 import { etiquetaMes, mesAnterior } from "@/lib/informes";
 import type { Informe, MarcaInforme } from "@/lib/informes";
+import { aniosBautizadoDe, edadDe, textoAniosBautizado, textoEdad } from "@/lib/fechas";
 import {
   tieneClasificacion,
   textoClasificacion,
@@ -561,22 +562,26 @@ export default function PaginaParticipantes() {
                       >
                         {p.nombre_completo}
                       </button>
-                      {p.edad !== null && p.edad !== undefined && (
-                        <div className="text-[11px] text-suave">Edad: {p.edad}</div>
+                      {textoEdad(edadDe(p)) && (
+                        <div className="text-[11px] text-suave">
+                          Edad: {textoEdad(edadDe(p))}
+                        </div>
                       )}
                       {p.fecha_nacimiento && (
                         <div className="text-[11px] text-suave">
-                          Nacimiento: {new Date(p.fecha_nacimiento + "T12:00:00").toLocaleDateString("es-AR")}
+                          Nacimiento:{" "}
+                          {new Date(p.fecha_nacimiento + "T12:00:00").toLocaleDateString("es-AR")}
+                        </div>
+                      )}
+                      {textoAniosBautizado(aniosBautizadoDe(p)) && (
+                        <div className="text-[11px] text-suave">
+                          Bautizado: {textoAniosBautizado(aniosBautizadoDe(p))}
                         </div>
                       )}
                       {p.fecha_bautismo && (
                         <div className="text-[11px] text-suave">
-                          Bautismo: {new Date(p.fecha_bautismo + "T12:00:00").toLocaleDateString("es-AR")}
-                        </div>
-                      )}
-                      {p.anios_bautizado !== null && p.anios_bautizado !== undefined && (
-                        <div className="text-[11px] text-suave">
-                          Años bautizado: {p.anios_bautizado}
+                          Fecha de bautismo:{" "}
+                          {new Date(p.fecha_bautismo + "T12:00:00").toLocaleDateString("es-AR")}
                         </div>
                       )}
                       {(p.clasificacion || []).length > 0 && (

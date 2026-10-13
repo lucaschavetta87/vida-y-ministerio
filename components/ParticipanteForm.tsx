@@ -5,6 +5,12 @@ import { Check, Loader2, Save, X } from "lucide-react";
 import { Boton, Campo, Etiqueta, Input, Select } from "@/components/ui";
 import ActividadDelAnio from "@/components/ActividadDelAnio";
 import {
+  aniosCumplidos,
+  aniosYMeses,
+  textoAniosBautizado,
+  textoEdad,
+} from "@/lib/fechas";
+import {
   CLASIFICACIONES,
   GENEROS,
   type Clasificacion,
@@ -91,6 +97,8 @@ export default function ParticipanteForm({
   const [error, setError] = useState("");
 
   const esNino = ficha.genero === "NIÑO" || ficha.genero === "NIÑA";
+  const fechaNacimiento = aniosCumplidos(ficha.fecha_nacimiento) !== null;
+  const fechaBautismo = aniosYMeses(ficha.fecha_bautismo) !== null;
 
   const rolesVisibles = useMemo(
     () => roles.filter((r) => r.activo),
@@ -246,13 +254,21 @@ export default function ParticipanteForm({
                     ))}
                   </Select>
                 </Campo>
-                <Campo label="Edad">
-                  <Input
-                    type="number"
-                    value={ficha.edad ?? ""}
-                    onChange={(e) => set("edad", e.target.value ? Number(e.target.value) : null)}
-                    placeholder="Ej: 30"
-                  />
+                <Campo label="Edad" hint="La calcula el sistema con la fecha de nacimiento">
+                  <div className="rounded-xl border border-linea bg-tarjeta2 px-3.5 py-2.5 text-sm">
+                    {fechaNacimiento ? (
+                      <span className="font-semibold">
+                        {textoEdad(aniosCumplidos(ficha.fecha_nacimiento))}
+                      </span>
+                    ) : ficha.edad !== null && ficha.edad !== undefined ? (
+                      <span className="text-suave">
+                        {textoEdad(ficha.edad)}{" "}
+                        <span className="text-[11px]">(cargada a mano: no hay fecha de nacimiento)</span>
+                      </span>
+                    ) : (
+                      <span className="text-suave">Cargá la fecha de nacimiento</span>
+                    )}
+                  </div>
                 </Campo>
               </div>
 
@@ -302,16 +318,23 @@ export default function ParticipanteForm({
               </div>
 
               <div className="grid gap-4 sm:grid-cols-2">
-                <Campo label="Años bautizado" hint="Años desde el bautismo (número decimal)">
-                  <Input
-                    type="number"
-                    step="0.1"
-                    value={ficha.anios_bautizado ?? ""}
-                    onChange={(e) =>
-                      set("anios_bautizado", e.target.value ? Number(e.target.value) : null)
-                    }
-                    placeholder="Ej: 25.5"
-                  />
+                <Campo label="Años bautizado" hint="Los calcula el sistema con la fecha de bautismo">
+                  <div className="rounded-xl border border-linea bg-tarjeta2 px-3.5 py-2.5 text-sm">
+                    {fechaBautismo ? (
+                      <span className="font-semibold">
+                        {textoAniosBautizado(aniosYMeses(ficha.fecha_bautismo))}
+                      </span>
+                    ) : ficha.anios_bautizado !== null && ficha.anios_bautizado !== undefined ? (
+                      <span className="text-suave">
+                        {textoAniosBautizado(ficha.anios_bautizado)}{" "}
+                        <span className="text-[11px]">
+                          (cargados a mano: no hay fecha de bautismo)
+                        </span>
+                      </span>
+                    ) : (
+                      <span className="text-suave">Cargá la fecha de bautismo</span>
+                    )}
+                  </div>
                 </Campo>
                 <div className="grid gap-4 sm:grid-cols-2">
                 <Campo
