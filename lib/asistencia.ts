@@ -29,6 +29,82 @@ export interface DatosAsistencia {
   zoom: number | null;
 }
 
+/**
+ * Un mes cargado a mano (para los meses que no se cargaron reunión por
+ * reunión). El promedio siempre se calcula: total ÷ reuniones.
+ */
+export interface ResumenManual {
+  mes: string;
+  tipo: TipoReunion;
+  reuniones: number;
+  total: number;
+  actualizado_en?: string;
+}
+
+export type ErroresResumen = {
+  mes?: string;
+  tipo?: string;
+  reuniones?: string;
+  total?: string;
+};
+
+const TIPOS: TipoReunion[] = ["entre-semana", "fin-de-semana"];
+
+/** Valida el resumen mensual y devuelve los datos para guardar. */
+export function validarResumen(
+  entrada: {
+    mes?: unknown;
+    tipo?: unknown;
+    reuniones?: unknown;
+    total?: unknown;
+  },
+): { errores: ErroresResumen } | { datos: Omit<ResumenManual, "actualizado_en"> } {
+  const errores: ErroresResumen = {};
+
+  const mes = typeof entrada.mes === "string" ? entrada.mes.trim() : "";
+  if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(mes)) {
+    errores.mes = "Elegí el mes del resumen.";
+  }
+
+  const tipo = entrada.tipo;
+  if (tipo !== "entre-semana" && tipo !== "fin-de-semana") {
+    errores.tipo = "Elegí si es de entre semana o de fin de semana.";
+  }
+
+  const leer = (valor: unknown): number | null => {
+    if (valor === null || valor === undefined || valor === "") return null;
+    const n = Number(valor);
+    return Number.isFinite(n) ? n : null;
+  };
+
+  const reuniones = leer(entrada.reuniones);
+  if (reuniones === null || !Number.isInteger(reuniones) || reuniones < 0) {
+    errores.reuniones = "Escribí cuántas reuniones hubo (0 si no hubo ninguna).";
+  }
+
+  const total = leer(entrada.total);
+  if (total === null || !Number.isInteger(total) || total < 0) {
+    errores.total = "Escribí la asistencia total del mes.";
+  }
+
+  if (Object.keys(errores).length) return { errores };
+  return {
+    datos: {
+      mes,
+      tipo: tipo as TipoReunion,
+      reuniones: reuniones as number,
+      total: total as number,
+    },
+  };
+}
+
+/** Etiqueta corta del tipo de reunión. */
+export function etiquetaTipo(tipo: TipoReunion): string {
+  return tipo === "entre-semana" ? "Entre semana" : "Fin de semana";
+}
+
+export const TIPOS_REUNION: TipoReunion[] = TIPOS;
+
 export type ErroresAsistencia = {
   fecha?: string;
   auditorio?: string;
@@ -68,6 +144,19 @@ export function fechaLarga(fecha: string): string {
 /** El mes al que pertenece un día: '2026-10-05' -> '2026-10' */
 export function mesDeFecha(fecha: string): string {
   return fecha.slice(0, 7);
+}
+
+/**
+ * Primer día del mes siguiente: '2026-09' -> '2026-10-01'.
+ * Sirve como límite exclusivo para agarrar un mes entero sin inventar
+ * el último día (septiembre no tiene 31, febrero tampoco).
+ */
+export function diaSiguienteMes(mes: string): string {
+  const [anio, numero] = mes.split("-");
+  const a = Number(anio);
+  const n = Number(numero);
+  if (!a || !n) return "";
+  return n === 12 ? `${a + 1}-01-01` : `${a}-${String(n + 1).padStart(2, "0")}-01`;
 }
 
 /** Hoy en clave 'YYYY-MM-DD' (hora local). */
@@ -127,6 +216,9 @@ export function tipoDeReunion(fecha: string): TipoReunion {
   return new Date(`${fecha}T12:00:00`).getDay() === 0 ? "fin-de-semana" : "entre-semana";
 }
 
+/** De dónde salen los números de un mes de un tipo de reunión. */
+export type OrigenResumen = "automatico" | "manual";
+
 /** Totales de un mes: reuniones, asistentes y promedio por reunión. */
 export interface ResumenMes {
   /** 'YYYY-MM' */
@@ -142,30 +234,48 @@ export interface ResumenMes {
   reunionesFinSemana: number;
   totalFinSemana: number;
   promedioFinSemana: number;
+  /** false = el mes (o ese tipo de reunión) está cargado a mano. */
+  automaticoEntreSemana: boolean;
+  automaticoFinSemana: boolean;
 }
 
 function redondear(valor: number): number {
   return Math.round(valor * 100) / 100;
 }
 
-function resumenDeUnMes(mes: string, etiqueta: string, dias: { total: number; tipo: TipoReunion }[]): ResumenMes {
-  const entre = dias.filter((d) => d.tipo === "entre-semana");
-  const fin = dias.filter((d) => d.tipo === "fin-de-semana");
-  const total = dias.reduce((s, d) => s + d.total, 0);
-  const totalEntre = entre.reduce((s, d) => s + d.total, 0);
-  const totalFin = fin.reduce((s, d) => s + d.total, 0);
+function resumenDeUnMes(
+  mes: string,
+  etiqueta: string,
+  dias: { total: number; tipo: TipoReunion }[],
+  manuales: Map<string, ResumenManual>,
+): ResumenMes {
+  const manualEntre = manuales.get(`${mes}|entre-semana`);
+  const manualFin = manuales.get(`${mes}|fin-de-semana`);
+
+  // el resumen manual manda sobre las cargas día por día
+  const diasEntre = manualEntre ? [] : dias.filter((d) => d.tipo === "entre-semana");
+  const diasFin = manualFin ? [] : dias.filter((d) => d.tipo === "fin-de-semana");
+
+  const totalEntre = manualEntre ? manualEntre.total : diasEntre.reduce((s, d) => s + d.total, 0);
+  const totalFin = manualFin ? manualFin.total : diasFin.reduce((s, d) => s + d.total, 0);
+  const reunionesEntre = manualEntre ? manualEntre.reuniones : diasEntre.length;
+  const reunionesFin = manualFin ? manualFin.reuniones : diasFin.length;
+  const total = totalEntre + totalFin;
+
   return {
     mes,
     etiqueta,
-    reuniones: dias.length,
+    reuniones: reunionesEntre + reunionesFin,
     total,
-    promedio: dias.length ? redondear(total / dias.length) : 0,
-    reunionesEntreSemana: entre.length,
+    promedio: reunionesEntre + reunionesFin ? redondear(total / (reunionesEntre + reunionesFin)) : 0,
+    reunionesEntreSemana: reunionesEntre,
     totalEntreSemana: totalEntre,
-    promedioEntreSemana: entre.length ? redondear(totalEntre / entre.length) : 0,
-    reunionesFinSemana: fin.length,
+    promedioEntreSemana: reunionesEntre ? redondear(totalEntre / reunionesEntre) : 0,
+    reunionesFinSemana: reunionesFin,
     totalFinSemana: totalFin,
-    promedioFinSemana: fin.length ? redondear(totalFin / fin.length) : 0,
+    promedioFinSemana: reunionesFin ? redondear(totalFin / reunionesFin) : 0,
+    automaticoEntreSemana: !manualEntre,
+    automaticoFinSemana: !manualFin,
   };
 }
 
@@ -193,6 +303,7 @@ export interface ResumenAnioServicio {
 export function resumenPorMes(
   filas: Pick<Asistencia, "fecha" | "total">[],
   meses: { clave: string; etiqueta: string }[],
+  manuales: ResumenManual[] = [],
 ): ResumenAnioServicio {
   const porDia = new Map<string, { total: number; tipo: TipoReunion }>();
   for (const fila of filas) {
@@ -201,6 +312,8 @@ export function resumenPorMes(
     porDia.set(fila.fecha, actual);
   }
 
+  const porManual = new Map(manuales.map((r) => [`${r.mes}|${r.tipo}`, r]));
+
   const resumenes = meses.map((m) =>
     resumenDeUnMes(
       m.clave,
@@ -208,6 +321,7 @@ export function resumenPorMes(
       [...porDia.entries()]
         .filter(([fecha]) => fecha.startsWith(m.clave))
         .map(([, d]) => ({ total: d.total, tipo: d.tipo })),
+      porManual,
     ),
   );
 

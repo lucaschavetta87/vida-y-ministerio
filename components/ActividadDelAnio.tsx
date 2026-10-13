@@ -15,11 +15,13 @@ import EditorInforme from "@/components/EditorInforme";
 import { Boton, Etiqueta, Panel, Select } from "@/components/ui";
 import { supabase } from "@/lib/supabase";
 import {
+  META_PRECURSOR_ANUAL,
   anioServicioActual,
   aniosDeFicha,
   etiquetaAnioServicio,
   mesesDelAnioServicio,
   rangoAnioServicio,
+  textoHorasFaltan,
 } from "@/lib/anio-servicio";
 import {
   etiquetaMes,
@@ -29,7 +31,7 @@ import {
   type Informe,
   type MarcaInforme,
 } from "@/lib/informes";
-import type { Participante } from "@/lib/tipos";
+import { tieneClasificacion, type Participante } from "@/lib/tipos";
 
 /** Una fila por mes del año de servicio (septiembre a agosto). */
 interface Fila {
@@ -150,6 +152,17 @@ export default function ActividadDelAnio({
   }, [informes, marcas, ultimoMes, mesEnElAnio]);
 
   const mesesInformados = filas.filter((f) => f.informe || f.marcada).length;
+
+  /** Suma de horas del año de servicio que se está viendo. */
+  const horas = useMemo(
+    () => informes.reduce((s, i) => s + (i.horas ?? 0), 0),
+    [informes],
+  );
+
+  /** ¿El mes en curso (el que se está informando) cae en el año que se mira? */
+  const mesActualEnEsteAnio = rango.desde <= ultimoMes && ultimoMes <= rango.hasta;
+  const fueAuxiliarAhora = mesActualEnEsteAnio
+    && filas.some((f) => f.clave === ultimoMes && f.informe?.tipo === "AUXILIAR");
 
   const resumen = useMemo(() => {
     const horas = informes.reduce((s, i) => s + (i.horas ?? 0), 0);
@@ -287,6 +300,46 @@ export default function ActividadDelAnio({
           <p className="text-xs text-suave">
             Informó {etiquetaMes(ultimoMes)}. Está al día.
           </p>
+        </div>
+      )}
+
+      {tieneClasificacion(participante, "PRECURSOR_REGULAR") && (
+        <div
+          className={
+            "flex flex-wrap items-center justify-between gap-3 rounded-xl border px-4 py-3 " +
+            (horas >= META_PRECURSOR_ANUAL
+              ? "border-verde/40 bg-verde/5"
+              : "border-gold/40 bg-gold/10")
+          }
+        >
+          <div>
+            <p className="text-sm font-bold">
+              Horas del año de servicio:{" "}
+              <span
+                className={
+                  horas >= META_PRECURSOR_ANUAL ? "text-verde" : "text-gold"
+                }
+              >
+                {horas} / {META_PRECURSOR_ANUAL}
+              </span>
+            </p>
+            <p className="text-xs text-suave">
+              {horas >= META_PRECURSOR_ANUAL
+                ? `Cumplió la meta de ${META_PRECURSOR_ANUAL} horas del año de servicio.`
+                : `Todavía no llega a las ${META_PRECURSOR_ANUAL} horas del año de servicio.`}
+              {fueAuxiliarAhora && (
+                <> Reportó {etiquetaMes(ultimoMes)} como precursor auxiliar.</>
+              )}
+            </p>
+          </div>
+          <span
+            className={
+              "text-lg font-black " +
+              (horas >= META_PRECURSOR_ANUAL ? "text-verde" : "text-rojo")
+            }
+          >
+            {textoHorasFaltan(horas)}
+          </span>
         </div>
       )}
 

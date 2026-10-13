@@ -1,13 +1,14 @@
 "use client";
 
 import { useMemo } from "react";
-import { CalendarDays, Sun } from "lucide-react";
+import { CalendarDays, Pencil, Sun } from "lucide-react";
 import { Etiqueta } from "@/components/ui";
 import {
   numeroPromedio,
   resumenPorMes,
   type Asistencia,
   type ResumenAnioServicio,
+  type ResumenManual,
   type TipoReunion,
 } from "@/lib/asistencia";
 import {
@@ -54,19 +55,30 @@ const TIPOS: DatosTipo[] = [
  */
 export default function TablaAsistenciaAnio({
   filas,
+  manuales,
   anio,
   paraImprimir = false,
+  onEditar,
 }: {
   /** Cargas de asistencia del año de servicio. */
   filas: Pick<Asistencia, "fecha" | "total">[];
+  /** Meses cargados a mano (mandan sobre las cargas por día). */
+  manuales?: ResumenManual[];
   anio: number;
   /** Versión para el PDF: sin tarjetas ni bordes redondeados. */
   paraImprimir?: boolean;
+  /** Abrir la corrección del mes (mes 'YYYY-MM' + tipo). */
+  onEditar?: (mes: string, tipo: TipoReunion) => void;
 }) {
   const meses = useMemo(() => mesesDelAnioServicio(anio), [anio]);
   const resumen: ResumenAnioServicio = useMemo(
-    () => resumenPorMes(filas, meses.map((m) => ({ clave: m.clave, etiqueta: m.corto }))),
-    [filas, meses],
+    () =>
+      resumenPorMes(
+        filas,
+        meses.map((m) => ({ clave: m.clave, etiqueta: m.corto })),
+        manuales,
+      ),
+    [filas, meses, manuales],
   );
 
   /** Un cuadro por tipo de reunión. */
@@ -118,6 +130,7 @@ export default function TablaAsistenciaAnio({
               <th className="px-4 py-2.5 text-right font-bold">Nº de reuniones</th>
               <th className="px-4 py-2.5 text-right font-bold">Asistencia total</th>
               <th className="px-4 py-2.5 text-right font-bold">Promedio por reunión</th>
+              {onEditar && !paraImprimir && <th className="px-2 py-2.5" />}
             </tr>
           </thead>
           <tbody>
@@ -125,6 +138,7 @@ export default function TablaAsistenciaAnio({
               const reuniones = m[tipo.meetings] as number;
               const total = m[tipo.total] as number;
               const promedio = m[tipo.promedio] as number;
+              const aMano = tipo.clave === "entre-semana" ? !m.automaticoEntreSemana : !m.automaticoFinSemana;
               return (
                 <tr
                   key={m.mes}
@@ -136,12 +150,33 @@ export default function TablaAsistenciaAnio({
                 >
                   <td className="px-4 py-2.5 font-semibold whitespace-nowrap capitalize">
                     {m.etiqueta}
+                    {aMano && (
+                      <span className="ml-1.5 rounded border border-gold/50 px-1 py-px align-middle text-[9px] font-bold tracking-wide text-gold uppercase">
+                        a mano
+                      </span>
+                    )}
                   </td>
                   <td className="px-4 py-2.5 text-right">{reuniones}</td>
                   <td className="px-4 py-2.5 text-right font-bold">{total}</td>
                   <td className="px-4 py-2.5 text-right font-black text-teal">
                     {reuniones === 0 ? "—" : numeroPromedio(promedio)}
                   </td>
+                  {onEditar && !paraImprimir && (
+                    <td className="px-2 py-2.5 text-right">
+                      <button
+                        type="button"
+                        onClick={() => onEditar(m.mes, tipo.clave)}
+                        title={
+                          aMano
+                            ? "Corregir el resumen cargado a mano"
+                            : "Cargar el mes a mano (nº de reuniones y asistencia total)"
+                        }
+                        className="cursor-pointer rounded-lg border border-linea p-1.5 text-suave transition-colors hover:border-teal hover:text-teal"
+                      >
+                        <Pencil size={13} />
+                      </button>
+                    </td>
+                  )}
                 </tr>
               );
             })}
@@ -226,8 +261,8 @@ export default function TablaAsistenciaAnio({
               )}
               <span className="text-[11px] tracking-widest uppercase">
                 {tipo.clave === "entre-semana"
-                  ? "Lunes a sábado"
-                  : "Domingos"}
+                  ? "ENTRE SEMANA"
+                  : "FIN DE SEMANA"}
                 {totalTipo(tipo) === 0 ? " · sin reuniones cargadas" : ""}
               </span>
             </div>

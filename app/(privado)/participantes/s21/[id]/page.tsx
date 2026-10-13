@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { ChevronLeft, FileDown, Loader2, Printer } from "lucide-react";
 import TarjetaS21 from "@/components/TarjetaS21";
-import { Campo, Etiqueta, Input, Select } from "@/components/ui";
+import { Campo, Etiqueta, Select } from "@/components/ui";
 import { supabase } from "@/lib/supabase";
 import {
   anioServicioActual,

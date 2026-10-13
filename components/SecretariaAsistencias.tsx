@@ -8,6 +8,7 @@ import {
   Building2,
   CalendarDays,
   FileDown,
+  Hand,
   Loader2,
   Lock,
   LockOpen,
@@ -16,24 +17,31 @@ import {
   Trash2,
   Video,
 } from "lucide-react";
-import { Boton, Campo, Etiqueta, Input, Panel, Select } from "@/components/ui";
+import { Boton, Campo, Etiqueta, Input, Modal, Panel, Select } from "@/components/ui";
 import TablaAsistenciaAnio from "@/components/TablaAsistenciaAnio";
+import FormularioResumenMes from "@/components/FormularioResumenMes";
 import { supabase } from "@/lib/supabase";
 import {
   diaDeSemana,
+  diaSiguienteMes,
+  etiquetaTipo,
   fechaCorta,
   hoyClave,
+  numeroPromedio,
   resumenPorDia,
   validarAsistencia,
   type AsistenciaFila,
   type AsistenciaMesCerrado,
   type DatosAsistencia,
   type ErroresAsistencia,
+  type ResumenManual,
+  type TipoReunion,
 } from "@/lib/asistencia";
 import {
   anioServicioActual,
   aniosDisponibles,
   etiquetaAnioServicio,
+  rangoAnioServicio,
   rangoFechasAnioServicio,
 } from "@/lib/anio-servicio";
 import { etiquetaMes, mesActual, ultimosMeses } from "@/lib/informes";
@@ -62,6 +70,12 @@ export default function SecretariaAsistencias() {
   const [editandoId, setEditandoId] = useState<string | null>(null);
   const [form, setForm] = useState<DatosAsistencia>(VACIO);
   const [errores, setErrores] = useState<ErroresAsistencia>({});
+  const [manuales, setManuales] = useState<ResumenManual[]>([]);
+  /** Mes + tipo que se está cargando a mano desde la lista del año. */
+  const [editandoResumen, setEditandoResumen] = useState<{
+    mes: string;
+    tipo: TipoReunion;
+  } | null>(null);
 
   /** Toda la carga del año de servicio (de una sola vez), para el resumen. */
   const traerAnio = useCallback(async (anio: number): Promise<AsistenciaFila[]> => {
@@ -95,7 +109,7 @@ export default function SecretariaAsistencias() {
         .from("asistencias")
         .select("*, registrado:participantes!registrado_por(nombre_completo)")
         .gte("fecha", `${mesElegido}-01`)
-        .lte("fecha", `${mesElegido}-31`)
+        .lt("fecha", diaSiguienteMes(mesElegido))
         .order("fecha", { ascending: true }),
       supabase.from("asistencias_meses").select("*").eq("mes", mesElegido).maybeSingle(),
     ]);
@@ -138,29 +152,55 @@ export default function SecretariaAsistencias() {
     };
   }, [traer, aplicar, mes]);
 
+  /** Los meses cargados a mano del año de servicio. */
+  const traerManuales = useCallback(async (anio: number): Promise<ResumenManual[]> => {
+    const { desde, hasta } = rangoAnioServicio(anio);
+    const { data } = await supabase
+      .from("asistencias_resumen")
+      .select("*")
+      .gte("mes", desde)
+      .lte("mes", hasta)
+      .order("mes");
+    return (data as ResumenManual[]) || [];
+  }, []);
+
   /** El resumen del año de servicio se mantiene al día con cada carga. */
   const recargarResumen = useCallback(async () => {
-    const [delAnio, conDatos] = await Promise.all([
+    const [delAnio, conDatos, aMano] = await Promise.all([
       traerAnio(anioServicio),
       traerAnios(),
+      traerManuales(anioServicio),
     ]);
     setFilasAnio(delAnio);
     setAnios(conDatos);
-  }, [anioServicio, traerAnio, traerAnios]);
+    setManuales(aMano);
+  }, [anioServicio, traerAnio, traerAnios, traerManuales]);
 
   useEffect(() => {
     let cancelado = false;
-    Promise.all([traerAnio(anioServicio), traerAnios()]).then(([delAnio, conDatos]) => {
-      if (cancelado) return;
-      setFilasAnio(delAnio);
-      setAnios(conDatos);
-    });
+    Promise.all([traerAnio(anioServicio), traerAnios(), traerManuales(anioServicio)]).then(
+      ([delAnio, conDatos, aMano]) => {
+        if (cancelado) return;
+        setFilasAnio(delAnio);
+        setAnios(conDatos);
+        setManuales(aMano);
+      },
+    );
     return () => {
       cancelado = true;
     };
-  }, [anioServicio, traerAnio, traerAnios]);
+  }, [anioServicio, traerAnio, traerAnios, traerManuales]);
 
   const resumen = useMemo(() => resumenPorDia(filas), [filas]);
+
+  /** Resúmenes a mano del mes que se está viendo. */
+  const manualesDelMes = useMemo(
+    () => manuales.filter((r) => r.mes === mes),
+    [manuales, mes],
+  );
+
+  /** ¿Este mes tiene alguno de los dos tipos cargado a mano? */
+  const mesCargadoAMano = manualesDelMes.length > 0;
   const promedio = resumen.diasConReunion
     ? Math.round(resumen.totalMes / resumen.diasConReunion)
     : 0;
@@ -294,10 +334,15 @@ export default function SecretariaAsistencias() {
             href={`/secretaria/asistencias/anio/${anioServicio}`}
             className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-linea bg-tarjeta2 px-4 py-2.5 text-sm font-semibold transition-colors hover:border-suave"
           >
-            <FileDown size={15} /> PDF del año de servicio
+            <FileDown size={15} /> PDF del S-88 (dos años)
           </Link>
         </div>
-        <TablaAsistenciaAnio filas={filasAnio} anio={anioServicio} />
+        <TablaAsistenciaAnio
+          filas={filasAnio}
+          manuales={manuales}
+          anio={anioServicio}
+          onEditar={(mesElegido, tipo) => setEditandoResumen({ mes: mesElegido, tipo })}
+        />
       </Panel>
 
       <Panel className="mb-6 p-5">
@@ -383,6 +428,58 @@ export default function SecretariaAsistencias() {
           {aviso}
         </div>
       )}
+
+      {mesCargadoAMano && (
+        <Panel className="mb-6 border-gold/40 bg-gold/5 p-5">
+          <h2 className="flex items-center gap-2 text-sm font-black tracking-tight text-gold">
+            <Hand size={16} /> {etiquetaMes(mes)} está cargado a mano
+          </h2>
+          <p className="mt-1 text-xs text-suave">
+            Estos números mandan sobre las cargas día por día de este mes. Se usan para los meses
+            que no se cargaron reunión por reunión.
+          </p>
+          <div className="mt-3 grid gap-2 sm:grid-cols-2">
+            {manualesDelMes.map((r) => (
+              <div
+                key={r.tipo}
+                className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-linea bg-tarjeta2 px-3 py-2"
+              >
+                <span className="text-sm">
+                  <strong>{etiquetaTipo(r.tipo)}:</strong> {r.reuniones}{" "}
+                  {r.reuniones === 1 ? "reunión" : "reuniones"} · {r.total} asistentes · promedio{" "}
+                  <strong className="text-teal">
+                    {numeroPromedio(r.reuniones ? r.total / r.reuniones : 0)}
+                  </strong>
+                </span>
+                <button
+                  onClick={() => setEditandoResumen({ mes: r.mes, tipo: r.tipo })}
+                  className="cursor-pointer rounded-lg border border-linea p-2 text-suave transition-colors hover:border-teal hover:text-teal"
+                  title="Corregir"
+                >
+                  <Pencil size={14} />
+                </button>
+              </div>
+            ))}
+          </div>
+        </Panel>
+      )}
+
+      <Panel className="mb-6 p-5">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <h2 className="flex items-center gap-2 text-sm font-black tracking-tight">
+            <Hand size={16} className="text-gold" />
+            Cargar {etiquetaMes(mes)} a mano
+          </h2>
+          <span className="text-xs text-suave">
+            Para los meses sin cargas por día. El promedio se calcula solo.
+          </span>
+        </div>
+        <FormularioResumenMes
+          key={`${mes}-nuevo`}
+          mesPorDefecto={mes}
+          onGuardado={recargarResumen}
+        />
+      </Panel>
 
       {!mesCerrado && (
         <Panel className="mb-6 p-5">
@@ -556,6 +653,31 @@ export default function SecretariaAsistencias() {
           <AlertCircle size={13} className="mt-0.5 shrink-0" />
           Si dos acomodadores cargan el mismo día, ambas cargas se suman en el total del día.
         </p>
+      )}
+
+      {editandoResumen && (
+        <Modal
+          titulo={`${etiquetaTipo(editandoResumen.tipo)} · ${etiquetaMes(editandoResumen.mes)}`}
+          subtitulo="Se carga el mes completo: número de reuniones y asistencia total"
+          onCerrar={() => setEditandoResumen(null)}
+        >
+          <FormularioResumenMes
+            key={`${editandoResumen.mes}-${editandoResumen.tipo}`}
+            mesPorDefecto={editandoResumen.mes}
+            tipoPorDefecto={editandoResumen.tipo}
+            resumen={
+              manuales.find(
+                (r) => r.mes === editandoResumen.mes && r.tipo === editandoResumen.tipo,
+              ) || null
+            }
+            onGuardado={async () => {
+              await recargarResumen();
+              setEditandoResumen(null);
+            }}
+            onCancelar={() => setEditandoResumen(null)}
+            compacto
+          />
+        </Modal>
       )}
     </div>
   );

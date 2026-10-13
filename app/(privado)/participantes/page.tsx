@@ -21,10 +21,18 @@ import ParticipanteForm from "@/components/ParticipanteForm";
 import ActividadDelAnio from "@/components/ActividadDelAnio";
 import GestionRoles from "@/components/GestionRoles";
 import { supabase } from "@/lib/supabase";
-import { anioServicioActual, etiquetaAnioServicio } from "@/lib/anio-servicio";
+import {
+  META_PRECURSOR_ANUAL,
+  rangoAnioServicio,
+  anioServicioActual,
+  etiquetaAnioServicio,
+  horasDelAnio,
+  textoHorasFaltan,
+} from "@/lib/anio-servicio";
 import { etiquetaMes, mesAnterior } from "@/lib/informes";
 import type { Informe, MarcaInforme } from "@/lib/informes";
 import {
+  tieneClasificacion,
   textoClasificacion,
   type Asignacion,
   type Participante,
@@ -46,13 +54,22 @@ interface DatosParticipantes {
 }
 
 async function traerDatos(): Promise<DatosParticipantes> {
-  const mesInforme = mesAnterior();
+  // todo el año de servicio, para poder mostrar las horas del año
+  const rango = rangoAnioServicio(anioServicioActual());
   const [p, r, a, i, m] = await Promise.all([
     supabase.from("participantes").select("*").order("nombre_completo"),
     supabase.from("roles").select("*").order("orden"),
     supabase.from("participante_roles").select("*"),
-    supabase.from("informes").select("participante_id, mes").eq("mes", mesInforme),
-    supabase.from("marcas_informe").select("participante_id, mes").eq("mes", mesInforme),
+    supabase
+      .from("informes")
+      .select("participante_id, mes, horas, tipo")
+      .gte("mes", rango.desde)
+      .lte("mes", rango.hasta),
+    supabase
+      .from("marcas_informe")
+      .select("participante_id, mes")
+      .gte("mes", rango.desde)
+      .lte("mes", rango.hasta),
   ]);
   return {
     participantes: (p.data as Participante[]) || [],
@@ -76,6 +93,9 @@ export default function PaginaParticipantes() {
   const [busqueda, setBusqueda] = useState("");
   const [filtroInactivos, setFiltroInactivos] = useState(false);
   const [filtroIrregulares, setFiltroIrregulares] = useState(false);
+  const [filtroPrecursores, setFiltroPrecursores] = useState(false);
+  const [filtroAncianos, setFiltroAncianos] = useState(false);
+  const [filtroSiervos, setFiltroSiervos] = useState(false);
   const [formAbierto, setFormAbierto] = useState(false);
   const [editando, setEditando] = useState<Participante | null>(null);
   /** Persona cuya actividad se está viendo (solo lectura). */
@@ -120,6 +140,22 @@ export default function PaginaParticipantes() {
   }, [aplicar]);
 
   /** Ya informou el mes que se está informando (SOLO el mes en curso). */
+  /** Horas del año de servicio de cada persona (para la meta de 600). */
+  const horasAnio = useMemo(
+    () => horasDelAnio(informesMes, marcasMes),
+    [informesMes, marcasMes],
+  );
+
+  const esPrecursor = useCallback(
+    (p: Participante) => tieneClasificacion(p, "PRECURSOR_REGULAR"),
+    [],
+  );
+  const esAnciano = useCallback((p: Participante) => tieneClasificacion(p, "ANCIANO"), []);
+  const esSiervo = useCallback(
+    (p: Participante) => tieneClasificacion(p, "SIERVO_MINISTERIAL"),
+    [],
+  );
+
   const informaron = useMemo(() => {
     const ids = new Set<string>();
     informesMes.forEach((i) => ids.add(i.participante_id));
@@ -140,6 +176,18 @@ export default function PaginaParticipantes() {
     );
   }, [participantes, informaron, datosInformesOk]);
 
+  const precursores = useMemo(
+    () => participantes.filter(esPrecursor),
+    [participantes, esPrecursor],
+  );
+  const ancianos = useMemo(() => participantes.filter(esAnciano), [participantes, esAnciano]);
+  const siervos = useMemo(() => participantes.filter(esSiervo), [participantes, esSiervo]);
+  const publicadores = useMemo(
+    () => participantes.filter((p) => p.activo && p.es_publicador !== false).length,
+    [participantes],
+  );
+  const activos = useMemo(() => participantes.filter((p) => p.activo).length, [participantes]);
+
   /** Todas las personas dadas de baja (el estado se cambia a mano). */
   const inactivos = useMemo(
     () => participantes.filter((p) => !p.activo).map((p) => p.id),
@@ -155,6 +203,9 @@ export default function PaginaParticipantes() {
         return false;
       }
       if (filtroIrregulares && !irregulares.has(p.id)) return false;
+      if (filtroPrecursores && !esPrecursor(p)) return false;
+      if (filtroAncianos && !esAnciano(p)) return false;
+      if (filtroSiervos && !esSiervo(p)) return false;
       if (!q) return true;
       return (
         p.nombre_completo.toLowerCase().includes(q) ||
@@ -162,7 +213,19 @@ export default function PaginaParticipantes() {
         (p.direccion || "").toLowerCase().includes(q)
       );
     });
-  }, [participantes, busqueda, filtroInactivos, filtroIrregulares, irregulares]);
+  }, [
+    participantes,
+    busqueda,
+    filtroInactivos,
+    filtroIrregulares,
+    filtroPrecursores,
+    filtroAncianos,
+    filtroSiervos,
+    irregulares,
+    esPrecursor,
+    esAnciano,
+    esSiervo,
+  ]);
 
   const mayores = useMemo(
     () =>
@@ -319,10 +382,14 @@ export default function PaginaParticipantes() {
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <div>
           <Titulo>Personas de la congregación</Titulo>
-          <p className="-mt-4 mb-4 text-sm text-suave">
-            {participantes.filter((p) => p.activo).length} activos ·{" "}
-            {roles.length} roles de asignación
-          </p>
+          <div className="-mt-4 mb-4 flex flex-wrap items-center gap-2">
+            <Etiqueta tono="verde">Activos: {activos}</Etiqueta>
+            <Etiqueta tono="teal">Publicadores: {publicadores}</Etiqueta>
+            <Etiqueta>Precursores: {precursores.length}</Etiqueta>
+            <Etiqueta>Ancianos: {ancianos.length}</Etiqueta>
+            <Etiqueta>Siervos: {siervos.length}</Etiqueta>
+            <Etiqueta>{roles.length} roles de asignación</Etiqueta>
+          </div>
         </div>
         <div className="flex gap-2">
           <Link
@@ -383,11 +450,46 @@ export default function PaginaParticipantes() {
         >
           IRREGULARES{irregulares.size ? ` (${irregulares.size})` : ""}
         </button>
-        {(filtroInactivos || filtroIrregulares) && (
+        {(
+          [
+            [
+              "PRECURSORES",
+              filtroPrecursores,
+              setFiltroPrecursores,
+              precursores.length,
+              "Precursores Regulares del año de servicio",
+            ],
+            ["ANCIANOS", filtroAncianos, setFiltroAncianos, ancianos.length, "Anciano en el ministerio"],
+            ["SIERVOS", filtroSiervos, setFiltroSiervos, siervos.length, "Siervo Ministerial"],
+          ] as const
+        ).map(([texto, activo, cambiar, cantidad, descripcion]) => (
+          <button
+            key={texto}
+            onClick={() => cambiar(!activo)}
+            title={descripcion}
+            className={
+              "cursor-pointer rounded-xl border px-3 py-2 text-xs font-bold tracking-wide transition-colors " +
+              (activo
+                ? "border-teal bg-teal/10 text-teal"
+                : "border-linea text-suave hover:border-suave")
+            }
+          >
+            {texto}
+            {cantidad ? ` (${cantidad})` : ""}
+          </button>
+        ))}
+        {(filtroInactivos ||
+          filtroIrregulares ||
+          filtroPrecursores ||
+          filtroAncianos ||
+          filtroSiervos) && (
           <button
             onClick={() => {
               setFiltroInactivos(false);
               setFiltroIrregulares(false);
+              setFiltroPrecursores(false);
+              setFiltroAncianos(false);
+              setFiltroSiervos(false);
             }}
             className="cursor-pointer px-1 text-xs font-semibold text-teal hover:underline"
           >
@@ -412,7 +514,11 @@ export default function PaginaParticipantes() {
           <p className="text-sm text-suave">
             {participantes.length === 0
               ? "Todavía no hay personas cargadas. Empezá con el botón “Nueva persona”."
-              : filtroInactivos || filtroIrregulares
+              : filtroInactivos ||
+                  filtroIrregulares ||
+                  filtroPrecursores ||
+                  filtroAncianos ||
+                  filtroSiervos
                 ? "Ninguna persona coincide con los filtros aplicados."
                 : "Ninguna persona coincide con la búsqueda."}
           </p>
@@ -433,6 +539,7 @@ export default function PaginaParticipantes() {
             <tbody>
               {visibles.map((p) => {
                 const susRoles = rolesDe(p.id);
+                const horas = horasAnio.get(p.id)?.horas ?? 0;
                 const esNino = p.genero === "NIÑO" || p.genero === "NIÑA";
                 const mayor = p.parentesco_con
                   ? participantes.find((m) => m.id === p.parentesco_con)
@@ -506,6 +613,25 @@ export default function PaginaParticipantes() {
                       {p.activo && irregulares.has(p.id) && (
                         <div className="text-[11px] font-semibold text-rojo">
                           Sin informe de {etiquetaMes(mesAnterior())}
+                        </div>
+                      )}
+                      {esPrecursor(p) && (
+                        <div className="text-[11px]">
+                          <span
+                            className={
+                              "font-semibold " +
+                              (horas >= META_PRECURSOR_ANUAL ? "text-verde" : "text-rojo")
+                            }
+                          >
+                            {textoHorasFaltan(horas)}
+                          </span>{" "}
+                          <span className="text-suave">· {horas} h de {META_PRECURSOR_ANUAL}</span>
+                        </div>
+                      )}
+                      {horasAnio.get(p.id)?.auxiliarMesActual && (
+                        <div className="text-[11px] text-suave">
+                          Reportó como precursor auxiliar en{" "}
+                          {etiquetaMes(mesAnterior())}
                         </div>
                       )}
                       {esNino && (

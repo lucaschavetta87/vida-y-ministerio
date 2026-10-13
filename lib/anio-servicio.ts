@@ -1,4 +1,4 @@
-import { MESES, MESES_CORTO, claveMes } from "./informes";
+import { MESES, MESES_CORTO, claveMes, mesAnterior } from "./informes";
 
 /** El año de servicio arranca en septiembre (índice 8) y termina en agosto. */
 const MES_INICIO = 8;
@@ -78,4 +78,62 @@ export function aniosDeFicha(
   // siempre se puede ver el año anterior al que arrancó la ficha
   for (let a = Math.min(desde, actual) - 1; a <= actual; a += 1) lista.push(a);
   return [...new Set(lista)].sort((a, b) => b - a);
+}
+
+
+/** Meta de horas del Precursor Regular en un año de servicio (septiembre a agosto). */
+export const META_PRECURSOR_ANUAL = 600;
+
+export interface HorasDelAnio {
+  /** Suma de todas las horas informadas del año de servicio. */
+  horas: number;
+  /** El informe del mes que se está informando fue como Precursor Auxiliar. */
+  auxiliarMesActual: boolean;
+}
+
+/**
+ * Horas del año de servicio de cada persona.
+ *
+ * Todos los Precursores Regulares informan horas todos los meses (la app ya
+ * sabe su clasificación), así que simplemente se suman todas las horas
+ * informadas de septiembre a agosto, sin importar el tipo del informe.
+ */
+export function horasDelAnio(
+  informes: { participante_id: string; mes: string; horas: number | null; tipo?: string }[],
+  marcas: { participante_id: string; mes: string }[] = [],
+  anio: number = anioServicioActual(),
+): Map<string, HorasDelAnio> {
+  const { desde, hasta } = rangoAnioServicio(anio);
+  const mesActual = mesAnterior();
+  const mapa = new Map<string, HorasDelAnio>();
+
+  for (const informe of informes) {
+    if (informe.mes < desde || informe.mes > hasta) continue;
+    const actual = mapa.get(informe.participante_id) || {
+      horas: 0,
+      auxiliarMesActual: false,
+    };
+    actual.horas += informe.horas ?? 0;
+    if (informe.mes === mesActual && informe.tipo === "AUXILIAR") {
+      actual.auxiliarMesActual = true;
+    }
+    mapa.set(informe.participante_id, actual);
+  }
+
+  // los meses cargados en otra web cuentan como mes informado
+  for (const marca of marcas) {
+    if (marca.mes < desde || marca.mes > hasta) continue;
+    if (!mapa.has(marca.participante_id)) {
+      mapa.set(marca.participante_id, { horas: 0, auxiliarMesActual: marca.mes === mesActual });
+    }
+  }
+
+  return mapa;
+}
+
+/** "Faltan (127 horas)" o las horas redondeadas si ya llegó. */
+export function textoHorasFaltan(horas: number, meta = META_PRECURSOR_ANUAL): string {
+  const faltan = meta - horas;
+  if (faltan <= 0) return `${meta} horas`;
+  return `Faltan (${faltan} ${faltan === 1 ? "hora" : "horas"})`;
 }

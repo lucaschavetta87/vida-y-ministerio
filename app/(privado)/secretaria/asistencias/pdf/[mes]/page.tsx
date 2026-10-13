@@ -7,6 +7,7 @@ import { ChevronLeft, Loader2, Printer } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import {
   diaDeSemana,
+  diaSiguienteMes,
   fechaCorta,
   fechaLarga,
   resumenPorDia,
@@ -31,7 +32,7 @@ export default function PaginaPdfAsistencias() {
       .from("asistencias")
       .select("*")
       .gte("fecha", `${mes}-01`)
-      .lte("fecha", `${mes}-31`)
+      .lt("fecha", diaSiguienteMes(mes))
       .order("fecha", { ascending: true })
       .then(({ data, error: err }) => {
         if (cancelado) return;
