@@ -16,6 +16,7 @@ import {
   Users,
 } from "lucide-react";
 import EditorInforme from "@/components/EditorInforme";
+import ModalActividad from "@/components/ModalActividad";
 import SecretariaAsistencias from "@/components/SecretariaAsistencias";
 import { Boton, Campo, Etiqueta, Input, Panel, Select, Titulo } from "@/components/ui";
 import { supabase } from "@/lib/supabase";
@@ -101,6 +102,8 @@ export default function PaginaSecretaria() {
   const [editando, setEditando] = useState<Editando | null>(null);
   const [filtro, setFiltro] = useState("");
   const [pestana, setPestana] = useState<"informes" | "asistencias">("informes");
+  /** Persona cuyo año de servicio se está viendo en el modal. */
+  const [viendo, setViendo] = useState<Participante | null>(null);
 
   const meses = useMemo(() => ultimosMeses(24), []);
 
@@ -390,7 +393,8 @@ export default function PaginaSecretaria() {
           </div>
           <p className="w-full text-xs text-suave sm:ml-auto sm:w-auto">
             <CalendarRange size={12} className="mr-1 inline" />
-            {etiquetaMes(mesAnterior())} es el mes que está informando la gente.
+            {etiquetaMes(mesAnterior())} es el mes que está informando la gente. Tocá un nombre
+            para ver su año de servicio.
           </p>
         </div>
 
@@ -486,7 +490,14 @@ export default function PaginaSecretaria() {
                     key={p.id}
                     className="flex items-center justify-between gap-2 rounded-xl border border-linea bg-tarjeta2 px-3 py-2"
                   >
-                    <span className="truncate text-sm font-semibold">{p.nombre_completo}</span>
+                    <button
+                      type="button"
+                      onClick={() => setViendo(p)}
+                      title="Ver el año de servicio"
+                      className="min-w-0 flex-1 cursor-pointer truncate text-left text-sm font-semibold hover:text-teal hover:underline"
+                    >
+                      {p.nombre_completo}
+                    </button>
                     <span className="flex shrink-0 items-center gap-1">
                       <BotonCargado participanteId={p.id} />
                       <Boton
@@ -549,8 +560,20 @@ export default function PaginaSecretaria() {
                       <tbody>
                         {lista.map((informe) => (
                           <tr key={informe.id} className="border-b border-linea/60 last:border-0">
-                            <td className="px-5 py-3 font-bold">
-                              {nombreDe(informe.participante_id)}
+                            <td className="px-5 py-3">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const persona = participantes.find(
+                                    (x) => x.id === informe.participante_id,
+                                  );
+                                  if (persona) setViendo(persona);
+                                }}
+                                title="Ver el año de servicio"
+                                className="cursor-pointer text-left font-bold hover:text-teal hover:underline"
+                              >
+                                {nombreDe(informe.participante_id)}
+                              </button>
                             </td>
                             {tipo === "AUXILIAR" && (
                               <td className="px-5 py-3">
@@ -609,6 +632,19 @@ export default function PaginaSecretaria() {
             );
           })}
         </>
+      )}
+
+      {viendo && (
+        <ModalActividad
+          participante={viendo}
+          onCerrar={() => setViendo(null)}
+          onCambiarActivo={async () => {
+            await cargar(mes);
+          }}
+          onCambiarInforme={async () => {
+            await cargar(mes);
+          }}
+        />
       )}
 
       {editando && (

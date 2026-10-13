@@ -51,10 +51,13 @@ interface Editando {
 export default function ActividadDelAnio({
   participante,
   onCambiarActivo,
+  onCambiarInforme,
   soloLectura = false,
 }: {
   participante: Participante;
   onCambiarActivo: (activo: boolean) => Promise<void>;
+  /** Se llama al guardar o borrar un informe, para refrescar la pantalla. */
+  onCambiarInforme?: () => Promise<void> | void;
   /** true = solo para ver el año de servicio, sin tocar nada. */
   soloLectura?: boolean;
 }) {
@@ -209,6 +212,7 @@ export default function ActividadDelAnio({
     setEditando(null);
     setCargando(true);
     recargar();
+    if (onCambiarInforme) await onCambiarInforme();
   };
 
   const eliminar = async () => {
@@ -227,6 +231,7 @@ export default function ActividadDelAnio({
     setEditando(null);
     setCargando(true);
     recargar();
+    if (onCambiarInforme) await onCambiarInforme();
   };
 
   const alternarActivo = async () => {

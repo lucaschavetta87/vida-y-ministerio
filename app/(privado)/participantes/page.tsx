@@ -16,9 +16,9 @@ import {
   UserRound,
   Users,
 } from "lucide-react";
-import { Boton, Etiqueta, Modal, Panel, Titulo } from "@/components/ui";
+import { Boton, Etiqueta, Panel, Titulo } from "@/components/ui";
 import ParticipanteForm from "@/components/ParticipanteForm";
-import ActividadDelAnio from "@/components/ActividadDelAnio";
+import ModalActividad from "@/components/ModalActividad";
 import GestionRoles from "@/components/GestionRoles";
 import { supabase } from "@/lib/supabase";
 import {
@@ -780,37 +780,37 @@ export default function PaginaParticipantes() {
       </div>
 
       {viendo && (
-        <Modal
-          titulo={viendo.nombre_completo}
-          subtitulo="Año de servicio: de septiembre a agosto. Para corregir algo, usá Editar actividad."
+        <ModalActividad
+          participante={viendo}
           onCerrar={() => setViendo(null)}
-        >
-          <ActividadDelAnio
-            participante={viendo}
-            soloLectura
-            onCambiarActivo={async () => undefined}
-          />
-          <div className="mt-4 flex flex-wrap justify-end gap-2 border-t border-linea pt-4">
-            <Link
-              href={`/participantes/s21/${viendo.id}`}
-              target="_blank"
-              className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-linea bg-tarjeta2 px-4 py-2.5 text-sm font-semibold transition-colors hover:border-suave"
-            >
-              <FileText size={15} /> Ver S-21
-            </Link>
-            <Boton
-              onClick={() => {
-                const persona = viendo;
-                setViendo(null);
-                setPestanaForm("actividad");
-                setEditando(persona);
-                setFormAbierto(true);
-              }}
-            >
-              <CalendarCheck size={15} /> Editar actividad
-            </Boton>
-          </div>
-        </Modal>
+          onCambiarActivo={async (activo) => {
+            setViendo((prev) => (prev ? { ...prev, activo } : prev));
+            await cargar();
+          }}
+          accionExtra={
+            <>
+              <Link
+                href={`/participantes/s21/${viendo.id}`}
+                target="_blank"
+                className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-linea bg-tarjeta2 px-4 py-2.5 text-sm font-semibold transition-colors hover:border-suave"
+              >
+                <FileText size={15} /> Ver S-21
+              </Link>
+              <Boton
+                variante="secundario"
+                onClick={() => {
+                  const persona = viendo;
+                  setViendo(null);
+                  setPestanaForm("actividad");
+                  setEditando(persona);
+                  setFormAbierto(true);
+                }}
+              >
+                Abrir ficha
+              </Boton>
+            </>
+          }
+        />
       )}
 
       {formAbierto && (
