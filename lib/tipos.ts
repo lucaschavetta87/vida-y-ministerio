@@ -3,6 +3,9 @@ export type Genero = "HOMBRE" | "MUJER" | "NIÑO" | "NIÑA";
 export const GENEROS: Genero[] = ["HOMBRE", "MUJER", "NIÑO", "NIÑA"];
 
 /** Un rol en el ministerio. Una persona puede tener más de uno. */
+/** Para el S-21: si está ungido o es de las otras ovejas. */
+export type TipoBautizado = "OTRAS_OVEJAS" | "UNGIDO";
+
 export type Clasificacion =
   | "ANCIANO"
   | "PRECURSOR_REGULAR"
@@ -48,6 +51,12 @@ export interface Participante {
   direccion: string | null;
   fecha_bautismo: string | null;
   anios_bautizado?: number | null;
+  /** A quién llamar en una emergencia. */
+  contacto_emergencia_nombre?: string | null;
+  /** Teléfono del contacto de emergencia. */
+  contacto_emergencia_telefono?: string | null;
+  /** Para el S-21: si está ungido o es de las otras ovejas. */
+  tipo_bautizado?: TipoBautizado | null;
   es_secretario?: boolean;
   miembro_comite_asamblea?: boolean;
   estado_civil: string | null;

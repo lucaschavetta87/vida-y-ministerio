@@ -99,4 +99,21 @@ button {
     color: inherit;
   }
 
+  /* Fichas S-21: una por hoja, sin márgenes de la web */
+  .s21 {
+    max-width: none !important;
+    width: 100% !important;
+    page-break-after: always;
+    break-after: page;
+  }
+
+  .s21:last-child {
+    page-break-after: auto;
+    break-after: auto;
+  }
+
+  .s21 table {
+    page-break-inside: avoid;
+  }
+
 }

@@ -9,6 +9,7 @@ import {
   GENEROS,
   type Clasificacion,
   type Genero,
+  type TipoBautizado,
   type Participante,
   type Rol,
 } from "@/lib/tipos";
@@ -37,6 +38,9 @@ const nuevaFicha = (): Omit<Participante, "id"> & { id?: string } => ({
   direccion: "",
   fecha_bautismo: "",
   anios_bautizado: null,
+  contacto_emergencia_nombre: "",
+  contacto_emergencia_telefono: "",
+  tipo_bautizado: "OTRAS_OVEJAS" as TipoBautizado,
   es_secretario: false,
   miembro_comite_asamblea: false,
   estado_civil: "",
@@ -252,6 +256,34 @@ export default function ParticipanteForm({
                 </Campo>
               </div>
 
+              <div className="rounded-xl border border-linea bg-tarjeta2 p-4">
+                <span className="mb-1.5 block text-[11px] font-bold tracking-widest text-suave uppercase">
+                  En el ministerio
+                </span>
+                <div className="flex flex-wrap gap-4">
+                  {(["OTRAS_OVEJAS", "UNGIDO"] as TipoBautizado[]).map((valor) => {
+                    const marcado = (ficha.tipo_bautizado || "OTRAS_OVEJAS") === valor;
+                    return (
+                      <label
+                        key={valor}
+                        className="flex cursor-pointer items-center gap-2"
+                        title="Se usa en la ficha S-21"
+                      >
+                        <input
+                          type="radio"
+                          name="tipo_bautizado"
+                          checked={marcado}
+                          onChange={() => set("tipo_bautizado", valor)}
+                        />
+                        <span className="text-sm font-semibold">
+                          {valor === "UNGIDO" ? "Ungido" : "Otras ovejas"}
+                        </span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+
               <div className="grid gap-4 sm:grid-cols-2">
                 <Campo label="Fecha de nacimiento">
                   <Input
@@ -281,7 +313,28 @@ export default function ParticipanteForm({
                     placeholder="Ej: 25.5"
                   />
                 </Campo>
-                <div className="flex flex-col justify-end gap-2 pb-1">
+                <div className="grid gap-4 sm:grid-cols-2">
+                <Campo
+                  label="Contacto de emergencia · Nombre"
+                  hint="A quién llamar si hay una urgencia"
+                >
+                  <Input
+                    value={ficha.contacto_emergencia_nombre || ""}
+                    onChange={(e) => set("contacto_emergencia_nombre", e.target.value)}
+                    placeholder="Ej: María Pérez"
+                  />
+                </Campo>
+                <Campo label="Contacto de emergencia · Contacto">
+                  <Input
+                    type="tel"
+                    value={ficha.contacto_emergencia_telefono || ""}
+                    onChange={(e) => set("contacto_emergencia_telefono", e.target.value)}
+                    placeholder="Ej: 261 555 5555"
+                  />
+                </Campo>
+              </div>
+
+              <div className="flex flex-col justify-end gap-2 pb-1">
                   <label
                     className="flex cursor-pointer items-center gap-3"
                     title="Si está tildado, llena el informe de actividad y aparece en Secretaría."

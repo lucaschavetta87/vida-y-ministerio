@@ -1,10 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import {
   Ban,
   CalendarCheck,
   CheckCircle2,
+  FileText,
   Pencil,
   Plus,
   Search,
@@ -224,7 +226,7 @@ export default function PaginaParticipantes() {
         error = reintento.error;
         if (!error)
           avisoColumnas =
-            "Faltan las columnas nuevas en la base (anios_bautizado, es_secretario, miembro_comite_asamblea, es_publicador, anio_servicio_inicio). Corre el SQL de migración.";
+            "Faltan las columnas nuevas en la base (anios_bautizado, es_secretario, miembro_comite_asamblea, es_publicador, anio_servicio_inicio, contacto_emergencia_nombre, contacto_emergencia_telefono, tipo_bautizado). Corre el SQL de migración.";
       }
       if (error) return traducir(error.message);
     } else {
@@ -243,7 +245,7 @@ export default function PaginaParticipantes() {
         error = reintento.error;
         if (!error)
           avisoColumnas =
-            "Faltan las columnas nuevas en la base (anios_bautizado, es_secretario, miembro_comite_asamblea, es_publicador, anio_servicio_inicio). Corre el SQL de migración.";
+            "Faltan las columnas nuevas en la base (anios_bautizado, es_secretario, miembro_comite_asamblea, es_publicador, anio_servicio_inicio, contacto_emergencia_nombre, contacto_emergencia_telefono, tipo_bautizado). Corre el SQL de migración.";
       }
       if (error) return traducir(error.message);
       if (!data) return "No se pudo guardar el participante.";
@@ -323,6 +325,13 @@ export default function PaginaParticipantes() {
           </p>
         </div>
         <div className="flex gap-2">
+          <Link
+            href="/participantes/s21"
+            target="_blank"
+            className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-linea bg-tarjeta2 px-4 py-2.5 text-sm font-semibold transition-colors hover:border-suave"
+          >
+            <FileText size={15} /> Todas las fichas S-21
+          </Link>
           <Boton variante="secundario" onClick={() => setRolesAbierto(true)}>
             <Settings2 size={15} /> Gestionar roles
           </Boton>
@@ -571,6 +580,14 @@ export default function PaginaParticipantes() {
                         >
                           <Pencil size={14} />
                         </button>
+                        <Link
+                          href={`/participantes/s21/${p.id}`}
+                          target="_blank"
+                          className="cursor-pointer rounded-lg border border-linea p-2 text-suave transition-colors hover:border-teal hover:text-teal"
+                          title="Ficha S-21 de esta persona"
+                        >
+                          <FileText size={14} />
+                        </Link>
                         <button
                           onClick={() => {
                             setPestanaForm("actividad");
@@ -642,7 +659,14 @@ export default function PaginaParticipantes() {
             soloLectura
             onCambiarActivo={async () => undefined}
           />
-          <div className="mt-4 flex justify-end border-t border-linea pt-4">
+          <div className="mt-4 flex flex-wrap justify-end gap-2 border-t border-linea pt-4">
+            <Link
+              href={`/participantes/s21/${viendo.id}`}
+              target="_blank"
+              className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-linea bg-tarjeta2 px-4 py-2.5 text-sm font-semibold transition-colors hover:border-suave"
+            >
+              <FileText size={15} /> Ver S-21
+            </Link>
             <Boton
               onClick={() => {
                 const persona = viendo;
@@ -699,6 +723,9 @@ const COLUMNAS_NUEVAS = [
   "miembro_comite_asamblea",
   "es_publicador",
   "anio_servicio_inicio",
+  "contacto_emergencia_nombre",
+  "contacto_emergencia_telefono",
+  "tipo_bautizado",
 ];
 
 function faltaColumnaNueva(mensaje: string): boolean {
