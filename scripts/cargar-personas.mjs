@@ -59,7 +59,13 @@ async function main() {
       genero: p.genero,
       edad: p.edad,
       fecha_nacimiento: p.fecha_nacimiento,
-      clasificacion: p.clasificacion,
+      // la columna es una lista desde la migración v7
+      clasificacion:
+        p.clasificacion == null
+          ? null
+          : Array.isArray(p.clasificacion)
+            ? p.clasificacion
+            : [p.clasificacion],
       activo: p.activo,
     };
     const previo = existentes.find((e) => e.nombre_completo === p.nombre_completo);

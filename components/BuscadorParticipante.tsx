@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { Check, ChevronDown, Search, X } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { Participante } from "@/lib/tipos";
+import { textoClasificaciones, type Participante } from "@/lib/tipos";
 import {
   antiguedadTexto,
   fechaCorta,
@@ -202,11 +202,16 @@ export default function BuscadorParticipante({
                         {p.genero}
                       </span>
                     </span>
-                    {(p.clasificacion || p.genero === "NIÑO" || p.genero === "NIÑA") && (
+                    {(textoClasificaciones(p) ||
+                      p.genero === "NIÑO" ||
+                      p.genero === "NIÑA") && (
                       <span className="w-full text-[10px] text-teal">
-                        {p.clasificacion ? p.clasificacion.replace(/_/g, " ") : ""}
-                        {(p.clasificacion && (p.genero === "NIÑO" || p.genero === "NIÑA")) ? " · " : ""}
-                        {(p.genero === "NIÑO" || p.genero === "NIÑA") ? "NIÑO/NIÑA" : ""}
+                        {[
+                          textoClasificaciones(p),
+                          p.genero === "NIÑO" || p.genero === "NIÑA" ? "NIÑO/NIÑA" : "",
+                        ]
+                          .filter(Boolean)
+                          .join(" · ")}
                       </span>
                     )}
                     <span className="w-full text-[11px]">

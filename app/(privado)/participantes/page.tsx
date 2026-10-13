@@ -22,7 +22,12 @@ import { supabase } from "@/lib/supabase";
 import { anioServicioActual, etiquetaAnioServicio } from "@/lib/anio-servicio";
 import { etiquetaMes, mesAnterior } from "@/lib/informes";
 import type { Informe, MarcaInforme } from "@/lib/informes";
-import type { Asignacion, Participante, Rol } from "@/lib/tipos";
+import {
+  textoClasificacion,
+  type Asignacion,
+  type Participante,
+  type Rol,
+} from "@/lib/tipos";
 
 const AVISO_SUPABASE =
   "No se pudo leer Supabase. ¿Ejecutaste el script SQL en el panel?";
@@ -458,9 +463,13 @@ export default function PaginaParticipantes() {
                           Años bautizado: {p.anios_bautizado}
                         </div>
                       )}
-                      {p.clasificacion && (
-                        <div className="text-[11px] font-semibold text-teal">
-                          {p.clasificacion.replace(/_/g, " ")}
+                      {(p.clasificacion || []).length > 0 && (
+                        <div className="mt-1 flex max-w-[260px] flex-wrap gap-1">
+                          {p.clasificacion!.map((c) => (
+                            <Etiqueta key={c} tono="teal">
+                              {textoClasificacion(c)}
+                            </Etiqueta>
+                          ))}
                         </div>
                       )}
                       {p.es_secretario && (

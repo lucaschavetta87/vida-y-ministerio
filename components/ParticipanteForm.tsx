@@ -4,7 +4,14 @@ import { useMemo, useState } from "react";
 import { Check, Loader2, Save, X } from "lucide-react";
 import { Boton, Campo, Etiqueta, Input, Select } from "@/components/ui";
 import ActividadDelAnio from "@/components/ActividadDelAnio";
-import { GENEROS, type Clasificacion, type Genero, type Participante, type Rol } from "@/lib/tipos";
+import {
+  CLASIFICACIONES,
+  GENEROS,
+  type Clasificacion,
+  type Genero,
+  type Participante,
+  type Rol,
+} from "@/lib/tipos";
 import {
   anioServicioActual,
   etiquetaAnioServicio,
@@ -85,6 +92,32 @@ export default function ParticipanteForm({
     () => roles.filter((r) => r.activo),
     [roles],
   );
+
+  /**
+   * Marca o desmarca un rol en el ministerio. Precursor Regular y Precursor
+   * Especial son excluyentes entre sí; los demás se pueden combinar.
+   */
+  const alternarClasificacion = (valor: Clasificacion) => {
+    setFicha((f) => {
+      const actuales = f.clasificacion || [];
+      if (actuales.includes(valor)) {
+        return { ...f, clasificacion: actuales.filter((c) => c !== valor) };
+      }
+      const contraparte =
+        valor === "PRECURSOR_REGULAR"
+          ? "PRECURSOR_ESPECIAL"
+          : valor === "PRECURSOR_ESPECIAL"
+            ? "PRECURSOR_REGULAR"
+            : null;
+      return {
+        ...f,
+        clasificacion: [
+          ...actuales.filter((c) => c !== contraparte),
+          valor,
+        ],
+      };
+    });
+  };
 
   const set = <K extends keyof typeof ficha>(k: K, v: (typeof ficha)[K]) =>
     setFicha((f) => ({ ...f, [k]: v }));
@@ -311,19 +344,44 @@ export default function ParticipanteForm({
                 </Select>
               </Campo>
 
-              <div className="grid gap-4 sm:grid-cols-2">
-                <Campo label="Si es Anciano/Precursor Regular/Precursor Especial/Siervo Ministerial">
-                  <Select
-                    value={ficha.clasificacion || ""}
-                    onChange={(e) => set("clasificacion", (e.target.value || null) as Clasificacion)}
-                  >
-                    <option value="">Seleccionar...</option>
-                    <option value="ANCIANO">Anciano</option>
-                    <option value="PRECURSOR_REGULAR">Precursor Regular</option>
-                    <option value="PRECURSOR_ESPECIAL">Precursor Especial</option>
-                    <option value="SIERVO_MINISTERIAL">Siervo Ministerial</option>
-                  </Select>
-                </Campo>
+              <div>
+                <span className="mb-1.5 block text-[11px] font-bold tracking-widest text-suave uppercase">
+                  Rol en el ministerio
+                </span>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {CLASIFICACIONES.map(({ valor, texto }) => {
+                    const marcado = (ficha.clasificacion || []).includes(valor);
+                    return (
+                      <button
+                        key={valor}
+                        type="button"
+                        onClick={() => alternarClasificacion(valor)}
+                        className={cn(
+                          "flex cursor-pointer items-center gap-3 rounded-xl border px-4 py-3 text-left transition-colors",
+                          marcado
+                            ? "border-teal bg-teal/10"
+                            : "border-linea bg-tarjeta2 hover:border-suave",
+                        )}
+                      >
+                        <span
+                          className={cn(
+                            "flex h-5 w-5 shrink-0 items-center justify-center rounded border transition-colors",
+                            marcado
+                              ? "border-teal bg-teal text-fondo"
+                              : "border-suave bg-transparent",
+                          )}
+                        >
+                          {marcado && <Check size={13} strokeWidth={3} />}
+                        </span>
+                        <span className="text-sm font-semibold">{texto}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+                <span className="mt-1.5 block text-xs text-suave">
+                  Se puede marcar más de uno. Precursor Regular y Precursor Especial son
+                  excluyentes entre sí.
+                </span>
               </div>
 
               <div className="grid gap-4 sm:grid-cols-2">

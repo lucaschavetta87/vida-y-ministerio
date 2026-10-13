@@ -22,7 +22,10 @@ create table if not exists participantes (
   telefono_fijo    text,
   parentesco_tipo  text,                 -- ej: 'HIJO/A', 'NIETO/A', 'SOBRINO/A'
   parentesco_con   uuid,                 -- FK al mayor ya cargado (se resuelve abajo)
-  clasificacion    text check (clasificacion in ('ANCIANO','PRECURSOR_REGULAR','PRECURSOR_ESPECIAL','SIERVO_MINISTERIAL') or clasificacion is null),
+  -- desde la migración v7 es una LISTA: una persona puede tener más de un rol
+  -- en el ministerio (text[] con valores de ANCIANO, SIERVO_MINISTERIAL,
+  -- PRECURSOR_REGULAR, PRECURSOR_ESPECIAL)
+  clasificacion    text[],
   activo           boolean not null default true,
   created_at       timestamptz not null default now(),
   updated_at       timestamptz not null default now()

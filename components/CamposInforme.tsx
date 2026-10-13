@@ -12,7 +12,17 @@ import {
   type TipoInforme,
 } from "@/lib/informes";
 
+import { tieneClasificacion, textoClasificaciones } from "@/lib/tipos";
 import { cn } from "@/lib/utils";
+
+/** Precursor Regular o Precursor Especial en la ficha. */
+function esPrecursor(persona: Coincidencia | null | undefined): boolean {
+  if (!persona) return false;
+  return (
+    tieneClasificacion(persona, "PRECURSOR_REGULAR") ||
+    tieneClasificacion(persona, "PRECURSOR_ESPECIAL")
+  );
+}
 
 export { BORRADOR_VACIO };
 
@@ -106,11 +116,10 @@ export default function CamposInforme({
             />
           ))}
         </div>
-        {persona?.clasificacion === "PRECURSOR_REGULAR" ||
-        persona?.clasificacion === "PRECURSOR_ESPECIAL" ? (
+        {esPrecursor(persona) ? (
           <p className="mt-2 text-xs text-suave">
-            Según tu ficha sos {persona.clasificacion === "PRECURSOR_REGULAR" ? "Precursor Regular" : "Precursor Especial"}.
-            Si este mes no fuiste precursor, elegí la opción que corresponda.
+            Según tu ficha sos {textoClasificaciones(persona!)}. Si este mes no fuiste precursor,
+            elegí la opción que corresponda.
           </p>
         ) : null}
         {errores?.tipo && <p className="mt-2 text-sm font-semibold text-rojo">{errores.tipo}</p>}

@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { AlertTriangle, Check, Search, X } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { Participante } from "@/lib/tipos";
+import { textoClasificaciones, type Participante } from "@/lib/tipos";
 import {
   antiguedadTexto,
   fechaCorta,
@@ -71,9 +71,9 @@ export default function SelectorPersona({
           <span className="min-w-0 flex-1">
             <span className="block truncate text-sm font-semibold">
               {elegido.nombre_completo}
-              {elegido.clasificacion && (
+              {(elegido.clasificacion || []).length > 0 && (
                 <span className="ml-2 text-[10px] font-bold text-teal">
-                  {elegido.clasificacion.replace(/_/g, " ")}
+                  {textoClasificaciones(elegido)}
                 </span>
               )}
             </span>
@@ -170,9 +170,9 @@ export default function SelectorPersona({
                         </span>
                       )}
                     </span>
-                    {p.clasificacion && (
-                      <span className="shrink-0 rounded-full border border-teal/40 px-2 py-0.5 text-[10px] font-bold text-teal">
-                        {p.clasificacion.replace(/_/g, " ")}
+                    {(p.clasificacion || []).length > 0 && (
+                      <span className="shrink-0 text-right text-[10px] font-bold text-teal">
+                        {textoClasificaciones(p)}
                       </span>
                     )}
                   </span>

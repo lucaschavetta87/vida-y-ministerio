@@ -13,7 +13,7 @@ import {
   type ErroresInforme,
   type Informe,
 } from "@/lib/informes";
-import type { Participante } from "@/lib/tipos";
+import { textoClasificacion, type Participante } from "@/lib/tipos";
 
 interface Props {
   participantes: Participante[];
@@ -129,19 +129,15 @@ export default function EditorInforme({
             <p className="text-sm font-bold">{persona?.nombre_completo || "Participante"}</p>
           )}
 
-          {persona?.clasificacion && (
-            <Etiqueta tono="teal">
-              Ficha:{" "}
-              {persona.clasificacion === "PRECURSOR_REGULAR"
-                ? "Precursor Regular"
-                : persona.clasificacion === "PRECURSOR_ESPECIAL"
-                  ? "Precursor Especial"
-                  : persona.clasificacion === "ANCIANO"
-                    ? "Anciano"
-                    : persona.clasificacion === "SIERVO_MINISTERIAL"
-                      ? "Siervo Ministerial"
-                      : persona.clasificacion}
-            </Etiqueta>
+          {(persona?.clasificacion || []).length > 0 && (
+            <span className="flex flex-wrap items-center gap-1">
+              <span className="text-[11px] tracking-widest text-suave uppercase">Ficha:</span>
+              {persona!.clasificacion!.map((c) => (
+                <Etiqueta key={c} tono="teal">
+                  {textoClasificacion(c)}
+                </Etiqueta>
+              ))}
+            </span>
           )}
 
           <CamposInforme

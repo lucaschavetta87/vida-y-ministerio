@@ -30,7 +30,12 @@ async function main() {
     if (viejo.estado_civil) datos.estado_civil = viejo.estado_civil.trim();
     if (viejo.fecha_nacimiento) datos.fecha_nacimiento = viejo.fecha_nacimiento;
     if (viejo.edad !== null && viejo.edad !== undefined) datos.edad = viejo.edad;
-    if (viejo.clasificacion && !destino.clasificacion) datos.clasificacion = viejo.clasificacion;
+    // la columna es una lista desde la migración v7
+    if (viejo.clasificacion && !destino.clasificacion) {
+      datos.clasificacion = Array.isArray(viejo.clasificacion)
+        ? viejo.clasificacion
+        : [viejo.clasificacion];
+    }
 
     const { error } = await supabase.from("participantes").update(datos).eq("id", destino.id);
     if (error) throw new Error(`${destino.nombre_completo}: ${error.message}`);
@@ -106,9 +111,10 @@ async function main() {
   log("Con teléfono:", finales.filter((p) => p.telefono).length);
   log("Con dirección:", finales.filter((p) => p.direccion).length);
   log("Con cónyuge:", finales.filter((p) => p.conyuge_id).length);
-  log("Ancianos:", finales.filter((p) => p.clasificacion === "ANCIANO").length);
-  log("Precursores:", finales.filter((p) => p.clasificacion === "PRECURSOR_REGULAR").length);
-  log("Siervos:", finales.filter((p) => p.clasificacion === "SIERVO_MINISTERIAL").length);
+  const tiene = (p, valor) => (p.clasificacion || []).includes(valor);
+  log("Ancianos:", finales.filter((p) => tiene(p, "ANCIANO")).length);
+  log("Precursores:", finales.filter((p) => tiene(p, "PRECURSOR_REGULAR")).length);
+  log("Siervos:", finales.filter((p) => tiene(p, "SIERVO_MINISTERIAL")).length);
   const { data: roles } = await supabase.from("participante_roles").select("participante_id");
   log("Roles asignados:", roles.length);
 }

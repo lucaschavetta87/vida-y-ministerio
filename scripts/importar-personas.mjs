@@ -50,12 +50,14 @@ function adivinarGenero(nombre) {
   return "MUJER";
 }
 
+/** Devuelve una LISTA de roles en el ministerio (columna text[]). */
 function clasificar(texto) {
   const t = texto.toUpperCase();
-  if (t.includes("ANCIANO")) return "ANCIANO";
-  if (t.includes("SIERVO")) return "SIERVO_MINISTERIAL";
-  if (t.includes("PRECURSOR")) return "PRECURSOR_REGULAR";
-  return null;
+  const lista = [];
+  if (t.includes("ANCIANO")) lista.push("ANCIANO");
+  if (t.includes("SIERVO")) lista.push("SIERVO_MINISTERIAL");
+  if (t.includes("PRECURSOR")) lista.push("PRECURSOR_REGULAR");
+  return lista.length ? lista : null;
 }
 
 export function calcularFechaNacimiento(edadDecimal, hoy = new Date()) {
@@ -217,7 +219,7 @@ if (esMain) {
         String(i + 1).padStart(2, "0"),
         p.nombre_completo,
         p.genero,
-        p.clasificacion ?? "-",
+        p.clasificacion ? p.clasificacion.join(" · ") : "-",
         `edad=${p.edad}`,
         `fn=${p.fecha_nacimiento}`,
         `baut=${p.anios_bautizado}`,

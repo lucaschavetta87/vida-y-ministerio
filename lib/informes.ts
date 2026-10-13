@@ -107,7 +107,8 @@ export interface Coincidencia {
   nombre: string;
   genero: Genero;
   edad: number | null;
-  clasificacion: Clasificacion;
+  /** Lista de roles en el ministerio (puede tener más de uno). */
+  clasificacion: Clasificacion[] | null;
   puntaje: number;
 }
 

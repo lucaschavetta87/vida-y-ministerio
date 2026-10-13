@@ -10,8 +10,9 @@ alter table participantes add column if not exists fecha_nacimiento date;
 alter table participantes add column if not exists telefono_fijo text;
 alter table participantes add column if not exists estado_civil text;
 alter table participantes add column if not exists conyuge_id uuid;
-alter table participantes add column if not exists clasificacion text
-  check (clasificacion in ('ANCIANO','PRECURSOR_REGULAR','PRECURSOR_ESPECIAL','SIERVO_MINISTERIAL') or clasificacion is null);
+-- OJO: esta versión define 'clasificacion' como texto (una sola).
+-- La migración v7 la convierte a text[] (una persona puede tener más de un rol).
+alter table participantes add column if not exists clasificacion text;
 alter table participantes add column if not exists retiro_donaciones_aprobado boolean default false;
 alter table participantes add column if not exists lector_atalaya_aprobado boolean default false;
 

@@ -2,7 +2,40 @@ export type Genero = "HOMBRE" | "MUJER" | "NIÑO" | "NIÑA";
 
 export const GENEROS: Genero[] = ["HOMBRE", "MUJER", "NIÑO", "NIÑA"];
 
-export type Clasificacion = "ANCIANO" | "PRECURSOR_REGULAR" | "PRECURSOR_ESPECIAL" | "SIERVO_MINISTERIAL" | null;
+/** Un rol en el ministerio. Una persona puede tener más de uno. */
+export type Clasificacion =
+  | "ANCIANO"
+  | "PRECURSOR_REGULAR"
+  | "PRECURSOR_ESPECIAL"
+  | "SIERVO_MINISTERIAL";
+
+export const CLASIFICACIONES: { valor: Clasificacion; texto: string }[] = [
+  { valor: "ANCIANO", texto: "Anciano" },
+  { valor: "SIERVO_MINISTERIAL", texto: "Siervo Ministerial" },
+  { valor: "PRECURSOR_REGULAR", texto: "Precursor Regular" },
+  { valor: "PRECURSOR_ESPECIAL", texto: "Precursor Especial" },
+];
+
+export function textoClasificacion(valor: Clasificacion): string {
+  return CLASIFICACIONES.find((c) => c.valor === valor)?.texto || valor.replace(/_/g, " ");
+}
+
+/** ¿La persona tiene ese rol en el ministerio? */
+export function tieneClasificacion(
+  persona: { clasificacion?: Clasificacion[] | null },
+  valor: Clasificacion,
+): boolean {
+  return persona.clasificacion?.includes(valor) ?? false;
+}
+
+/** "Anciano · Precursor Regular" */
+export function textoClasificaciones(persona: {
+  clasificacion?: Clasificacion[] | null;
+}): string {
+  return (persona.clasificacion || [])
+    .map(textoClasificacion)
+    .join(" · ");
+}
 
 export interface Participante {
   id: string;
@@ -21,7 +54,8 @@ export interface Participante {
   conyuge_id: string | null;
   parentesco_tipo: string | null;
   parentesco_con: string | null;
-  clasificacion: Clasificacion;
+  /** Lista de roles en el ministerio (puede tener más de uno). */
+  clasificacion: Clasificacion[] | null;
   retiro_donaciones_aprobado?: boolean;
   lector_atalaya_aprobado?: boolean;
   /** Tildado = llena el informe de actividad y aparece en Secretaría. */

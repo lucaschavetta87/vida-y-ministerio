@@ -5,7 +5,13 @@ import { useRouter } from "next/navigation";
 import { Boton, Campo, Input, Panel, Titulo } from "@/components/ui";
 import SelectorPersona from "@/components/SelectorPersona";
 import { supabase } from "@/lib/supabase";
-import type { Asignacion, Participante, Reunion, ReunionParte } from "@/lib/tipos";
+import {
+  tieneClasificacion,
+  type Asignacion,
+  type Participante,
+  type Reunion,
+  type ReunionParte,
+} from "@/lib/tipos";
 import { hoyISO, traerHistorial, type Historial } from "@/lib/historial";
 
 interface RAM {
@@ -201,9 +207,17 @@ export default function AsignacionesMecanicasPage() {
     [participantes],
   );
 
-  const ancianos = useMemo(() => hombres.filter((p) => p.clasificacion === "ANCIANO"), [hombres]);
+  const ancianos = useMemo(
+    () => hombres.filter((p) => tieneClasificacion(p, "ANCIANO")),
+    [hombres],
+  );
   const ancianosOServidores = useMemo(
-    () => hombres.filter((p) => p.clasificacion === "ANCIANO" || p.clasificacion === "SIERVO_MINISTERIAL"),
+    () =>
+      hombres.filter(
+        (p) =>
+          tieneClasificacion(p, "ANCIANO") ||
+          tieneClasificacion(p, "SIERVO_MINISTERIAL"),
+      ),
     [hombres],
   );
 
