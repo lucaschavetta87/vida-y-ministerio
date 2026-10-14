@@ -116,4 +116,10 @@ button {
     page-break-inside: avoid;
   }
 
+  /* Planillas: que ninguna fila se parta entre dos hojas */
+  .pagina-pdf tr,
+  .pagina-pdf thead {
+    page-break-inside: avoid;
+  }
+
 }

@@ -19,6 +19,7 @@ type PersonaBasica = {
   edad: number | null;
   fecha_nacimiento: string | null;
   clasificacion: Coincidencia["clasificacion"];
+  conductor_salidas_aprobado?: boolean;
   es_publicador?: boolean;
 };
 
@@ -59,7 +60,8 @@ export async function traerPersonaPorId(
  * columna es_publicador (migración pendiente) la trae sin ella.
  */
 async function candidatos(): Promise<{ personas: PersonaBasica[]; conPublicador: boolean }> {
-  const columnas = "id, nombre_completo, genero, edad, fecha_nacimiento, clasificacion";
+  const columnas =
+    "id, nombre_completo, genero, edad, fecha_nacimiento, clasificacion, conductor_salidas_aprobado";
 
   const conColumna = await supabase
     .from("participantes")
@@ -107,6 +109,7 @@ export async function buscarPorNombre(
     genero: elemento.genero,
     edad: edadDe(elemento),
     clasificacion: elemento.clasificacion,
+    conductor_salidas_aprobado: elemento.conductor_salidas_aprobado === true,
     puntaje,
   }));
 }

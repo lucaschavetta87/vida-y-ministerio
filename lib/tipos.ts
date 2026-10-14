@@ -67,6 +67,8 @@ export interface Participante {
   clasificacion: Clasificacion[] | null;
   retiro_donaciones_aprobado?: boolean;
   lector_atalaya_aprobado?: boolean;
+  /** Aprobado para cargar /territorios y ser conductor de salidas. */
+  conductor_salidas_aprobado?: boolean;
   /** Tildado = llena el informe de actividad y aparece en Secretaría. */
   es_publicador?: boolean;
   activo: boolean;

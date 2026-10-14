@@ -97,6 +97,7 @@ export default function PaginaParticipantes() {
   const [filtroPrecursores, setFiltroPrecursores] = useState(false);
   const [filtroAncianos, setFiltroAncianos] = useState(false);
   const [filtroSiervos, setFiltroSiervos] = useState(false);
+  const [filtroConductores, setFiltroConductores] = useState(false);
   const [formAbierto, setFormAbierto] = useState(false);
   const [editando, setEditando] = useState<Participante | null>(null);
   /** Persona cuya actividad se está viendo (solo lectura). */
@@ -188,6 +189,13 @@ export default function PaginaParticipantes() {
     [participantes],
   );
   const activos = useMemo(() => participantes.filter((p) => p.activo).length, [participantes]);
+  const conductores = useMemo(
+    () =>
+      participantes.filter(
+        (p) => p.activo && p.conductor_salidas_aprobado === true,
+      ),
+    [participantes],
+  );
 
   /** Todas las personas dadas de baja (el estado se cambia a mano). */
   const inactivos = useMemo(
@@ -207,6 +215,7 @@ export default function PaginaParticipantes() {
       if (filtroPrecursores && !esPrecursor(p)) return false;
       if (filtroAncianos && !esAnciano(p)) return false;
       if (filtroSiervos && !esSiervo(p)) return false;
+      if (filtroConductores && !p.conductor_salidas_aprobado) return false;
       if (!q) return true;
       return (
         p.nombre_completo.toLowerCase().includes(q) ||
@@ -222,6 +231,7 @@ export default function PaginaParticipantes() {
     filtroPrecursores,
     filtroAncianos,
     filtroSiervos,
+    filtroConductores,
     irregulares,
     esPrecursor,
     esAnciano,
@@ -271,10 +281,18 @@ export default function PaginaParticipantes() {
          datos.genero === "NIÑO" || datos.genero === "NIÑA"
            ? datos.parentesco_con
            : null,
-       clasificacion: datos.clasificacion || null,
+       clasificacion:
+         datos.clasificacion && datos.clasificacion.length > 0
+           ? datos.clasificacion
+           : null,
        retiro_donaciones_aprobado: datos.retiro_donaciones_aprobado || false,
        lector_atalaya_aprobado: datos.lector_atalaya_aprobado || false,
-      es_publicador: datos.es_publicador !== false,
+       conductor_salidas_aprobado: datos.conductor_salidas_aprobado || false,
+       anio_servicio_inicio: datos.anio_servicio_inicio ?? anioServicioActual(),
+       contacto_emergencia_nombre: datos.contacto_emergencia_nombre || null,
+       contacto_emergencia_telefono: datos.contacto_emergencia_telefono || null,
+       tipo_bautizado: datos.tipo_bautizado || "OTRAS_OVEJAS",
+       es_publicador: datos.es_publicador !== false,
        activo: datos.activo,
      };
 
@@ -290,7 +308,7 @@ export default function PaginaParticipantes() {
         error = reintento.error;
         if (!error)
           avisoColumnas =
-            "Faltan las columnas nuevas en la base (anios_bautizado, es_secretario, miembro_comite_asamblea, es_publicador, anio_servicio_inicio, contacto_emergencia_nombre, contacto_emergencia_telefono, tipo_bautizado). Corre el SQL de migración.";
+            "Faltan las columnas nuevas en la base (anios_bautizado, es_secretario, miembro_comite_asamblea, es_publicador, anio_servicio_inicio, contacto_emergencia_nombre, contacto_emergencia_telefono, tipo_bautizado, conductor_salidas_aprobado). Corre el SQL de migración.";
       }
       if (error) return traducir(error.message);
     } else {
@@ -309,7 +327,7 @@ export default function PaginaParticipantes() {
         error = reintento.error;
         if (!error)
           avisoColumnas =
-            "Faltan las columnas nuevas en la base (anios_bautizado, es_secretario, miembro_comite_asamblea, es_publicador, anio_servicio_inicio, contacto_emergencia_nombre, contacto_emergencia_telefono, tipo_bautizado). Corre el SQL de migración.";
+            "Faltan las columnas nuevas en la base (anios_bautizado, es_secretario, miembro_comite_asamblea, es_publicador, anio_servicio_inicio, contacto_emergencia_nombre, contacto_emergencia_telefono, tipo_bautizado, conductor_salidas_aprobado). Corre el SQL de migración.";
       }
       if (error) return traducir(error.message);
       if (!data) return "No se pudo guardar el participante.";
@@ -389,6 +407,7 @@ export default function PaginaParticipantes() {
             <Etiqueta>Precursores: {precursores.length}</Etiqueta>
             <Etiqueta>Ancianos: {ancianos.length}</Etiqueta>
             <Etiqueta>Siervos: {siervos.length}</Etiqueta>
+            <Etiqueta>Conductores: {conductores.length}</Etiqueta>
             <Etiqueta>{roles.length} roles de asignación</Etiqueta>
           </div>
         </div>
@@ -462,6 +481,13 @@ export default function PaginaParticipantes() {
             ],
             ["ANCIANOS", filtroAncianos, setFiltroAncianos, ancianos.length, "Anciano en el ministerio"],
             ["SIERVOS", filtroSiervos, setFiltroSiervos, siervos.length, "Siervo Ministerial"],
+            [
+              "CONDUCTORES",
+              filtroConductores,
+              setFiltroConductores,
+              conductores.length,
+              "Aprobados para cargar /territorios y ser conductores de salidas",
+            ],
           ] as const
         ).map(([texto, activo, cambiar, cantidad, descripcion]) => (
           <button
@@ -483,7 +509,8 @@ export default function PaginaParticipantes() {
           filtroIrregulares ||
           filtroPrecursores ||
           filtroAncianos ||
-          filtroSiervos) && (
+          filtroSiervos ||
+          filtroConductores) && (
           <button
             onClick={() => {
               setFiltroInactivos(false);
@@ -491,6 +518,7 @@ export default function PaginaParticipantes() {
               setFiltroPrecursores(false);
               setFiltroAncianos(false);
               setFiltroSiervos(false);
+              setFiltroConductores(false);
             }}
             className="cursor-pointer px-1 text-xs font-semibold text-teal hover:underline"
           >
@@ -519,7 +547,8 @@ export default function PaginaParticipantes() {
                   filtroIrregulares ||
                   filtroPrecursores ||
                   filtroAncianos ||
-                  filtroSiervos
+                  filtroSiervos ||
+                  filtroConductores
                 ? "Ninguna persona coincide con los filtros aplicados."
                 : "Ninguna persona coincide con la búsqueda."}
           </p>
@@ -857,6 +886,7 @@ const COLUMNAS_NUEVAS = [
   "contacto_emergencia_nombre",
   "contacto_emergencia_telefono",
   "tipo_bautizado",
+  "conductor_salidas_aprobado",
 ];
 
 function faltaColumnaNueva(mensaje: string): boolean {

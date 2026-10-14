@@ -3,16 +3,53 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Menu, Users, CalendarDays, ClipboardList, Wrench, X } from "lucide-react";
+import {
+  Menu,
+  Users,
+  CalendarDays,
+  ClipboardList,
+  Wrench,
+  X,
+  MapPin,
+  KeyRound,
+} from "lucide-react";
 import Salir from "@/components/Salir";
 import { cn } from "@/lib/utils";
+import type { Sesion } from "@/lib/auth";
 
 const enlaces = [
-  { href: "/participantes", texto: "Personas de la congregación", Icono: Users },
-  { href: "/reunion", texto: "Vida y Ministerio", Icono: CalendarDays },
-  { href: "/asignaciones-mecanicas", texto: "Asignaciones Mecánicas", Icono: Wrench },
-  { href: "/secretaria", texto: "Secretaría", Icono: ClipboardList },
-];
+  {
+    href: "/participantes",
+    texto: "Personas de la congregación",
+    Icono: Users,
+    permiso: "participantes",
+  },
+  {
+    href: "/reunion",
+    texto: "Vida y Ministerio",
+    Icono: CalendarDays,
+    permiso: "reunion",
+  },
+  {
+    href: "/asignaciones-mecanicas",
+    texto: "Asignaciones Mecánicas",
+    Icono: Wrench,
+    permiso: "asignaciones",
+  },
+  { href: "/servicio", texto: "Servicio", Icono: MapPin, permiso: "servicio" },
+  {
+    href: "/secretaria",
+    texto: "Secretaría",
+    Icono: ClipboardList,
+    permiso: "secretaria",
+  },
+  {
+    href: "/usuarios",
+    texto: "Usuarios",
+    Icono: KeyRound,
+    permiso: "usuarios",
+  },
+] as const;
 
 function Marca({ compacta }: { compacta?: boolean }) {
   return (
@@ -36,12 +73,15 @@ function Marca({ compacta }: { compacta?: boolean }) {
   );
 }
 
-export default function NavLateral({ autenticado }: { autenticado: boolean }) {
+export default function NavLateral({ sesion }: { sesion: Sesion | null }) {
   const ruta = usePathname();
   const [abierto, setAbierto] = useState(false);
+  const autenticado = !!sesion;
 
-  const items = autenticado
-    ? enlaces.map(({ href, texto, Icono }) => {
+  const items = sesion
+    ? enlaces
+        .filter(({ permiso }) => (sesion.admin ? true : sesion.permisos.includes(permiso)))
+        .map(({ href, texto, Icono }) => {
         const activa = ruta === href || ruta.startsWith(`${href}/`);
         return (
           <Link
@@ -58,8 +98,8 @@ export default function NavLateral({ autenticado }: { autenticado: boolean }) {
             <Icono size={17} />
             {texto}
           </Link>
-        );
-      })
+          );
+        })
     : [];
 
   return (

@@ -549,6 +549,17 @@ export default function ParticipanteForm({
                     />
                     <span className="text-sm font-semibold">Aprobado para Lector de Atalaya</span>
                   </label>
+                  <label
+                    className="mb-2 flex items-center gap-2 rounded-xl border border-linea bg-tarjeta2 px-4 py-3"
+                    title="Puede cargar /territorios y ser conductor de las salidas al ministerio"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={!!ficha.conductor_salidas_aprobado}
+                      onChange={(e) => set("conductor_salidas_aprobado", e.target.checked)}
+                    />
+                    <span className="text-sm font-semibold">Aprobado como Conductor de salidas</span>
+                  </label>
                 </>
               )}
               {rolesVisibles

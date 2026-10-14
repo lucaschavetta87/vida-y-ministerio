@@ -109,6 +109,8 @@ export interface Coincidencia {
   edad: number | null;
   /** Lista de roles en el ministerio (puede tener más de uno). */
   clasificacion: Clasificacion[] | null;
+  /** Aprobado como conductor de salidas (para /territorios). */
+  conductor_salidas_aprobado?: boolean;
   puntaje: number;
 }
 
