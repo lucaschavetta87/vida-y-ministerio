@@ -46,16 +46,129 @@ interface RAM {
   notas: string | null;
 }
 
-function Fila({ etiqueta, valor }: { etiqueta: string; valor: string }) {
+/** Colores de la maqueta: crema en los encabezados, gris muy claro en las celdas. */
+const CREMA = "#FDF6E4";
+const GRIS_CELDA = "#F4F4F4";
+
+/**
+ * Tamaños de la maqueta. Son números (y no clases) para poder ajustarlos
+ * en un solo lugar y que la guía ocupe bien la hoja A4.
+ */
+const TAM = {
+  titulo: 19,
+  encabezado: 13,
+  celda: 13,
+  limpieza: 16,
+  linea: 16,
+  paddingCelda: 6,
+  paddingEncabezado: 8,
+  huecoEntreBloques: 56,
+  huecoAntesDeLineas: 32,
+  huecoDespuesDeLineas: 32,
+};
+
+const celda = "border border-black px-2 leading-tight";
+const encabezado = "border border-black px-2 text-center leading-tight";
+
+/** Una columna de la grilla, con su gente. */
+interface Columna {
+  titulo: string[];
+  arriba: string;
+  abajo?: string;
+  /** celda que ocupa las dos filas (limpieza) */
+  doble?: string;
+}
+
+/** Una línea con la etiqueta subrayada, como en la maqueta. */
+function Linea({ etiqueta, valor }: { etiqueta: string; valor: string }) {
   return (
-    <tr className="border-b border-linea">
-      <td className="w-56 border-r border-linea bg-gris/50 px-2 py-1.5 font-bold text-xs">
-        {etiqueta}
-      </td>
-      <td className="px-2 py-1.5 text-sm font-semibold">
-        {valor || <span className="font-normal text-suave">—</span>}
-      </td>
-    </tr>
+    <p
+      style={{ fontSize: TAM.linea, marginBottom: TAM.linea / 3 }}
+      className="leading-relaxed"
+    >
+      <span className="underline">{etiqueta}:</span>{" "}
+      <span className="font-medium">{valor || "—"}</span>
+    </p>
+  );
+}
+
+/** Título centrado del bloque. */
+function Titulo({ dia }: { dia: string }) {
+  return (
+    <h2
+      style={{ fontSize: TAM.titulo, marginBottom: TAM.titulo }}
+      className="text-center leading-tight"
+    >
+      <span className="font-bold underline">Asignaciones Mecánicas</span>
+      <span className="font-medium">: {dia}</span>
+    </h2>
+  );
+}
+
+/** La grilla de 8 columnas. */
+function Grilla({ columnas }: { columnas: Columna[] }) {
+  return (
+    <table className="w-full border-collapse">
+      <thead>
+        <tr>
+          {columnas.map((c, i) => (
+            <th
+              key={i}
+              className={encabezado}
+              style={{
+                background: CREMA,
+                fontSize: TAM.encabezado,
+                paddingTop: TAM.paddingEncabezado,
+                paddingBottom: TAM.paddingEncabezado,
+              }}
+            >
+              {c.titulo.map((linea, j) => (
+                <span key={j} className="block">
+                  {linea}
+                </span>
+              ))}
+            </th>
+          ))}
+        </tr>
+      </thead>
+      <tbody>
+        {[0, 1].map((fila) => (
+          <tr key={fila}>
+            {columnas.map((c, i) =>
+              c.doble !== undefined ? (
+                fila === 0 ? (
+                  <td
+                    key={i}
+                    rowSpan={2}
+                    style={{
+                      background: GRIS_CELDA,
+                      paddingTop: TAM.paddingCelda,
+                      paddingBottom: TAM.paddingCelda,
+                    }}
+                    className={`${celda} text-center`}
+                  >
+                    <span style={{ fontSize: TAM.limpieza }}>{c.doble}</span>
+                  </td>
+                ) : null
+              ) : (
+                <td
+                  key={i}
+                  className={celda}
+                  style={{
+                    background: GRIS_CELDA,
+                    fontSize: TAM.celda,
+                    paddingTop: TAM.paddingCelda,
+                    paddingBottom: TAM.paddingCelda,
+                  }}
+                >
+                  {fila === 0 ? c.arriba : c.abajo}
+                </td>
+              ),
+            )}
+          </tr>
+        ))}
+      </tbody>
+    </table>
   );
 }
 
@@ -94,23 +207,92 @@ export default function PdfAsignacionesMecanicas() {
     return mapa;
   }, [participantes]);
 
-  const get = (id: string | null | undefined) =>
-    id ? nombres[id] || "—" : "—";
+  /** Nombre de la persona, o cadena vacía si no hay nadie asignado. */
+  const get = (id: string | null | undefined) => (id ? nombres[id] || "" : "");
 
-  const dos = (a: string | null | undefined, b: string | null | undefined) => {
-    const n1 = a ? nombres[a] || "—" : "";
-    const n2 = b ? nombres[b] || "—" : "";
-    if (n1 && n2) return `${n1} / ${n2}`;
-    return n1 || n2 || "";
+  /** El día que se escribió en la pantalla; si no, la fecha de la reunión. */
+  const diaDe = (escrito: string | null | undefined) => {
+    if (escrito && escrito.trim()) return escrito.trim();
+    return reunion ? fechaLarga(reunion.fecha_inicio) : "";
+  };
+
+  /** Los campos de la tabla cambian de nombre en fin de semana. */
+  const campos = (esFinDeSemana: boolean) => ({
+    puerta: (esFinDeSemana ? "acomodador_puerta_fs_id" : "acomodador_puerta_id") as keyof RAM,
+    auditorio: (esFinDeSemana
+      ? "acomodador_auditorio_fs_id"
+      : "acomodador_auditorio_id") as keyof RAM,
+    audio: (esFinDeSemana ? "audio_fs_id" : "audio_id") as keyof RAM,
+    video: (esFinDeSemana ? "video_fs_id" : "video_id") as keyof RAM,
+    plataforma: (esFinDeSemana ? "plataforma_fs_id" : "plataforma_id") as keyof RAM,
+    microfonista1: (esFinDeSemana
+      ? "microfonista_1_fs_id"
+      : "microfonista_1_id") as keyof RAM,
+    microfonista2: (esFinDeSemana
+      ? "microfonista_2_fs_id"
+      : "microfonista_2_id") as keyof RAM,
+    retiro1: (esFinDeSemana
+      ? "retiro_donaciones_1_fs_id"
+      : "retiro_donaciones_1_id") as keyof RAM,
+    retiro2: (esFinDeSemana
+      ? "retiro_donaciones_2_fs_id"
+      : "retiro_donaciones_2_id") as keyof RAM,
+  });
+
+  const columnas = (r: RAM, esFinDeSemana: boolean): Columna[] => {
+    const c = campos(esFinDeSemana);
+    const nombre = (campo: keyof RAM) => get(r[campo] as string | null);
+    return [
+      { titulo: ["Acomodador", "Puerta"], arriba: nombre(c.puerta) },
+      { titulo: ["Acomodador", "Auditorio"], arriba: nombre(c.auditorio) },
+      { titulo: ["Audio"], arriba: nombre(c.audio) },
+      { titulo: ["Video /", "ZOOM"], arriba: nombre(c.video) },
+      { titulo: ["Plataforma"], arriba: nombre(c.plataforma) },
+      {
+        titulo: ["Micrófonos"],
+        arriba: nombre(c.microfonista1),
+        abajo: nombre(c.microfonista2),
+      },
+      {
+        titulo: ["Retiro de", "Donaciones"],
+        arriba: nombre(c.retiro1),
+        abajo: nombre(c.retiro2),
+      },
+      {
+        titulo: ["Limpieza"],
+        arriba: "",
+        doble:
+          (esFinDeSemana
+            ? r.limpieza_grupo_fin_semana
+            : r.limpieza_grupo_entresemana) || "",
+      },
+    ];
   };
 
   if (cargando) return <Panel className="p-10 text-center">Cargando...</Panel>;
-  if (error || !reunion)
+  if (error || !reunion || !ram)
     return <div className="p-4 text-rojo">{error || "No encontrado"}</div>;
 
+  const oracionFinal = [
+    get(ram.oracion_final_id) ||
+      ram.oracion_final_texto ||
+      "",
+  ]
+    .filter(Boolean)
+    .join(" — ");
+
+  const conferencia = [
+    ram.conferencia_nombre || "",
+    ram.conferencia_presenta_texto
+      ? `Presenta: ${ram.conferencia_presenta_texto}`
+      : "",
+  ]
+    .filter(Boolean)
+    .join(" — ");
+
   return (
-    <div className="pagina-pdf mx-auto max-w-3xl">
-      <div className="no-print mb-6 flex flex-wrap items-center justify-between gap-3">
+    <div className="pagina-pdf mx-auto w-full max-w-[1000px] font-serif">
+      <div className="no-print mb-6 flex flex-wrap items-center justify-between gap-3 font-sans">
         <Link
           href="/asignaciones-mecanicas"
           className="flex items-center gap-1 text-sm text-suave hover:text-teal"
@@ -119,93 +301,44 @@ export default function PdfAsignacionesMecanicas() {
         </Link>
         <button
           onClick={() => window.print()}
-          className="flex items-center gap-1.5 rounded-lg bg-teal px-4 py-2 text-sm font-bold text-white"
+          className="flex cursor-pointer items-center gap-1.5 rounded-lg bg-teal px-4 py-2 text-sm font-bold text-white"
         >
           <Printer size={15} /> Guardar como PDF
         </button>
       </div>
 
-      <header className="mb-4 border-b-2 border-texto pb-3">
-        <h1 className="text-lg font-black uppercase">
-          Asignaciones Este Las Heras
-        </h1>
-        <p className="text-sm font-semibold">{reunion.titulo}</p>
-        <p className="text-xs text-suave">
-          {fechaLarga(reunion.fecha_inicio)} → {fechaLarga(reunion.fecha_fin)}
-        </p>
-      </header>
+      {/* -------- entre semana -------- */}
+      <section className="break-inside-avoid">
+        <Titulo dia={diaDe(ram.dia_entresemana)} />
+        <Grilla columnas={columnas(ram, false)} />
+      </section>
 
-      <h2 className="mb-2 mt-6 border-b border-texto pb-1 text-sm font-black tracking-widest uppercase">
-        Reunión de Entresemana
-      </h2>
-      <table className="mb-6 w-full border-collapse">
-        <tbody>
-          <Fila etiqueta="Día de la Reunión" valor={ram?.dia_entresemana || ""} />
-          <Fila etiqueta="Acomodador de Puerta" valor={get(ram?.acomodador_puerta_id)} />
-          <Fila etiqueta="Acomodador de Auditorio" valor={get(ram?.acomodador_auditorio_id)} />
-          <Fila etiqueta="Micrófonista 1" valor={get(ram?.microfonista_1_id)} />
-          <Fila etiqueta="Micrófonista 2" valor={get(ram?.microfonista_2_id)} />
-          <Fila etiqueta="Audio" valor={get(ram?.audio_id)} />
-          <Fila etiqueta="Video" valor={get(ram?.video_id)} />
-          <Fila etiqueta="Plataforma" valor={get(ram?.plataforma_id)} />
-          <Fila
-            etiqueta="Retiro de Donaciones"
-            valor={dos(ram?.retiro_donaciones_1_id, ram?.retiro_donaciones_2_id)}
-          />
-          <Fila etiqueta="Limpieza - Grupo" valor={ram?.limpieza_grupo_entresemana || ""} />
-        </tbody>
-      </table>
+      {/* -------- fin de semana -------- */}
+      <section
+        style={{ marginTop: TAM.huecoEntreBloques }}
+        className="break-inside-avoid"
+      >
+        <Titulo dia={diaDe(ram.dia_finsemana)} />
 
-      <h2 className="mb-2 border-b border-texto pb-1 text-sm font-black tracking-widest uppercase">
-        Reunión de Fin de Semana
-      </h2>
-      <table className="w-full border-collapse">
-        <tbody>
-          <Fila etiqueta="Día de la Reunión" valor={ram?.dia_finsemana || ""} />
-          <Fila etiqueta="Presidente" valor={get(ram?.presidente_fin_semana_id)} />
-          <Fila
-            etiqueta="Oración (Asignaciones)"
-            valor={get(ram?.oracion_asignaciones_id)}
+        <div style={{ marginBottom: TAM.huecoAntesDeLineas }}>
+          <Linea etiqueta="Presidente" valor={get(ram.presidente_fin_semana_id)} />
+          <Linea
+            etiqueta="Oración"
+            valor={get(ram.oracion_asignaciones_id) || ram.oracion_asignaciones_texto || ""}
           />
-          {(ram?.conferencia_nombre || ram?.conferencia_presenta_texto) && (
-            <Fila
-              etiqueta="Conferencia"
-              valor={[
-                ram?.conferencia_nombre || "",
-                ram?.conferencia_presenta_texto
-                  ? `Presenta: ${ram.conferencia_presenta_texto}`
-                  : "",
-              ]
-                .filter(Boolean)
-                .join(" — ")}
-            />
-          )}
-          <Fila etiqueta="Conductor de Atalaya" valor={get(ram?.conductor_atalaya_id)} />
-          <Fila etiqueta="Lector (Atalaya)" valor={get(ram?.lector_id)} />
-          <Fila etiqueta="Acomodador de Puerta" valor={get(ram?.acomodador_puerta_fs_id)} />
-          <Fila etiqueta="Acomodador de Auditorio" valor={get(ram?.acomodador_auditorio_fs_id)} />
-          <Fila etiqueta="Micrófonista 1" valor={get(ram?.microfonista_1_fs_id)} />
-          <Fila etiqueta="Micrófonista 2" valor={get(ram?.microfonista_2_fs_id)} />
-          <Fila etiqueta="Audio" valor={get(ram?.audio_fs_id)} />
-          <Fila etiqueta="Video" valor={get(ram?.video_fs_id)} />
-          <Fila etiqueta="Plataforma" valor={get(ram?.plataforma_fs_id)} />
-          <Fila
-            etiqueta="Retiro de Donaciones"
-            valor={dos(ram?.retiro_donaciones_1_fs_id, ram?.retiro_donaciones_2_fs_id)}
-          />
-          <Fila
-            etiqueta="Limpieza - Grupo"
-            valor={ram?.limpieza_grupo_fin_semana || ram?.limpieza_grupo_entresemana || ""}
-          />
-          <Fila
-            etiqueta="Oración Final"
-            valor={
-              get(ram?.oracion_final_id) +
-              (ram?.oracion_final_texto ? ` — ${ram.oracion_final_texto}` : "")
-            }
-          />
-        </tbody>
-      </table>
+          <Linea etiqueta="Conductor de la Atalaya" valor={get(ram.conductor_atalaya_id)} />
+          <Linea etiqueta="Lector" valor={get(ram.lector_id)} />
+        </div>
+
+        <Grilla columnas={columnas(ram, true)} />
+
+        {(oracionFinal || conferencia) && (
+          <div style={{ marginTop: TAM.huecoDespuesDeLineas }}>
+            {oracionFinal && <Linea etiqueta="Oración final" valor={oracionFinal} />}
+            {conferencia && <Linea etiqueta="Conferencia" valor={conferencia} />}
+          </div>
+        )}
+      </section>
     </div>
   );
 }
