@@ -15,6 +15,7 @@ import {
   ChevronLeft,
   ChevronRight,
   FileDown,
+  FileText,
   Image as ImageIcon,
   Loader2,
   Plus,
@@ -41,6 +42,8 @@ import {
   normalizar,
   tituloDeSemana,
 } from "@/lib/planilla";
+import ModalS13 from "@/components/ModalS13";
+import type { SalidaConDetalle, Territorio } from "@/lib/territorios";
 import type { Participante } from "@/lib/tipos";
 
 /* ============================================================
@@ -114,8 +117,14 @@ const tieneDatos = (f: Fila) =>
 
 export default function FormularioSalidas({
   participantes,
+  territorios = [],
+  salidasTerritorio = [],
 }: {
   participantes: Participante[];
+  /** los 69 territorios, para el S-13 */
+  territorios?: Territorio[];
+  /** salidas de territorio ya cargadas, para el S-13 */
+  salidasTerritorio?: SalidaConDetalle[];
 }) {
   const hoy = hoyClave();
   /** Cualquier día de la semana que se está armando. */
@@ -131,6 +140,7 @@ export default function FormularioSalidas({
   const [sucio, setSucio] = useState(false);
   const [aviso, setAviso] = useState("");
   const [editandoConfig, setEditandoConfig] = useState(false);
+  const [viendoS13, setViendoS13] = useState(false);
 
   const semana = useMemo(() => diasDeSemana(ancla), [ancla]);
 
@@ -357,6 +367,9 @@ export default function FormularioSalidas({
             </div>
             <Boton variante="secundario" onClick={() => setEditandoConfig((v) => !v)}>
               <ImageIcon size={15} /> Encabezado
+            </Boton>
+            <Boton variante="secundario" onClick={() => setViendoS13(true)}>
+              <FileText size={15} /> Ver S-13
             </Boton>
             <a
               href={`/servicio/salidas/pdf/semana/${ancla}`}
@@ -598,6 +611,16 @@ export default function FormularioSalidas({
           </div>
         )}
       </Panel>
+
+      {/* ---- el registro S-13 ---- */}
+      {viendoS13 && (
+        <ModalS13
+          territorios={territorios}
+          salidas={salidasTerritorio}
+          participantes={participantes}
+          onCerrar={() => setViendoS13(false)}
+        />
+      )}
     </div>
   );
 }

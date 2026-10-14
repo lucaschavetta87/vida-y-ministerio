@@ -162,10 +162,17 @@ export default function PaginaServicio() {
     await cargarSalidas();
   };
 
-  const guardarObservaciones = async (numero: number, texto: string) => {
+  const guardarObservaciones = async (
+    numero: number,
+    texto: string,
+    letras: string[],
+  ) => {
     const { error } = await supabase
       .from("territorios")
-      .update({ observaciones: texto.trim() || null })
+      .update({
+        observaciones: texto.trim() || null,
+        letras: letras.length ? letras : [],
+      })
       .eq("numero", numero);
     if (error) setAviso(error.message);
     else setAviso("");
@@ -430,7 +437,11 @@ export default function PaginaServicio() {
     <div>
       <Titulo>Servicio</Titulo>
       {tabs}
-      <FormularioSalidas participantes={participantes} />
+      <FormularioSalidas
+        participantes={participantes}
+        territorios={territorios}
+        salidasTerritorio={salidas}
+      />
     </div>
   );
 }
@@ -514,11 +525,23 @@ function ModalTerritorio({
   /** si es territorio personal, el nombre de quien lo tiene */
   personal?: string | null;
   onCerrar: () => void;
-  onGuardar: (numero: number, texto: string) => Promise<void>;
+  onGuardar: (
+    numero: number,
+    texto: string,
+    letras: string[],
+  ) => Promise<void>;
 }) {
   const [texto, setTexto] = useState(territorio.observaciones || "");
+  const [letras, setLetras] = useState<string[]>(territorio.letras || []);
   const [guardando, setGuardando] = useState(false);
   const [guardado, setGuardado] = useState(false);
+
+  const alternar = (letra: string) =>
+    setLetras((prev) =>
+      prev.includes(letra)
+        ? prev.filter((l) => l !== letra)
+        : [...prev, letra].sort((a, b) => a.localeCompare(b)),
+    );
 
   return (
     <Modal
@@ -540,9 +563,30 @@ function ModalTerritorio({
 
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="rounded-xl border border-linea bg-tarjeta2 p-3">
-            <p className="text-[11px] tracking-widest text-suave uppercase">Manzanas</p>
-            <p className="mt-1 text-sm font-bold tracking-wide uppercase">
-              {territorio.letras.join(", ") || "—"}
+            <p className="mb-2 text-[11px] tracking-widest text-suave uppercase">
+              Manzanas
+            </p>
+            <div className="flex flex-wrap gap-1.5">
+              {LETRAS.map((l) => (
+                <button
+                  key={l}
+                  type="button"
+                  onClick={() => alternar(l)}
+                  className={cn(
+                    "h-8 w-8 cursor-pointer rounded-lg border-2 text-sm font-bold transition-colors",
+                    letras.includes(l)
+                      ? "border-teal bg-teal text-fondo"
+                      : "border-linea text-suave hover:border-suave",
+                  )}
+                >
+                  {l}
+                </button>
+              ))}
+            </div>
+            <p className="mt-1.5 text-[11px] text-suave">
+              {letras.length
+                ? letras.join(", ")
+                : "Sin manzanas: tildá las que correspondan"}
             </p>
           </div>
           <div className="rounded-xl border border-linea bg-tarjeta2 p-3">
@@ -583,13 +627,13 @@ function ModalTerritorio({
               disabled={guardando}
               onClick={async () => {
                 setGuardando(true);
-                await onGuardar(territorio.numero, texto);
+                await onGuardar(territorio.numero, texto, letras);
                 setGuardando(false);
                 setGuardado(true);
               }}
             >
               {guardando ? <Loader2 size={15} className="animate-spin" /> : <Pencil size={15} />}
-              Guardar observación
+              Guardar cambios
             </Boton>
           </div>
         </div>
