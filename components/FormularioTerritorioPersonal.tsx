@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import {
   CheckCircle2,
+  CircleCheck,
   CircleDashed,
   Loader2,
   MapPin,
@@ -46,6 +47,8 @@ export default function FormularioTerritorioPersonal() {
   const [observaciones, setObservaciones] = useState("");
   const [enviando, setEnviando] = useState(false);
   const [listo, setListo] = useState<string | null>(null);
+  /** id del reporte que se está corrigiendo (si aplica) */
+  const [editandoReporte, setEditandoReporte] = useState<string | null>(null);
 
   const temporizador = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -84,6 +87,7 @@ export default function FormularioTerritorioPersonal() {
         setCoincidencias([]);
         return;
       }
+      setEditandoReporte(null);
       setElegido({
         id,
         nombre: j.nombre || nombre,
@@ -105,6 +109,15 @@ export default function FormularioTerritorioPersonal() {
 
   const ultimo = elegido?.reportes?.[0];
 
+  /** Vuelve a leer los reportes de la persona (tras guardar o corregir). */
+  const recargarReportes = async (id: string) => {
+    const r = await fetch(`/api/territorios-personales?persona=${id}`);
+    const j = await r.json();
+    if (r.ok && elegido) {
+      setElegido({ ...elegido, reportes: j.reportes || [] });
+    }
+  };
+
   /* ---------- enviar ---------- */
   const enviar = async () => {
     if (!elegido) return;
@@ -116,6 +129,7 @@ export default function FormularioTerritorioPersonal() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           publicador_id: elegido.id,
+          reporte_id: editandoReporte,
           fecha,
           estado,
           manzanas: estado === "INCOMPLETO" ? faltantes : [],
@@ -127,7 +141,9 @@ export default function FormularioTerritorioPersonal() {
         setError(j.error || "No se pudo guardar.");
         return;
       }
-      setListo(estado);
+      setListo(j.editado ? "Corregimos tu último reporte." : estado);
+      await recargarReportes(elegido.id);
+      setEditandoReporte(null);
       setFaltantes([]);
       setObservaciones("");
       setFecha(hoyClave());
@@ -235,16 +251,72 @@ export default function FormularioTerritorioPersonal() {
       {verificado && elegido && (
         <Panel className="p-5">
           {ultimo && (
-            <p className="mb-4 text-sm text-suave">
-              Tu último reporte: <strong>{fechaCorta(ultimo.fecha)}</strong> ·{" "}
-              {ultimo.estado === "COMPLETADO" ? (
-                <span className="text-verde">completo</span>
-              ) : (
-                <span>
-                  incompleto (faltaron {ultimo.manzanas.join(", ") || "unas manzanas"})
-                </span>
-              )}
-            </p>
+            <div className="mb-5 rounded-xl border border-linea bg-tarjeta2 p-4">
+              <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                <p className="text-sm">
+                  Último reporte: <strong>{fechaCorta(ultimo.fecha)}</strong> ·{" "}
+                  {ultimo.estado === "COMPLETADO" ? (
+                    <span className="font-semibold text-verde">completo</span>
+                  ) : (
+                    <span className="font-semibold text-gold2">
+                      incompleto — faltaron{" "}
+                      {ultimo.manzanas.join(", ") || "unas manzanas"}
+                    </span>
+                  )}
+                </p>
+                <button
+                  onClick={() => {
+                    // se corrige ese mismo reporte, no se crea otro
+                    setEditandoReporte(ultimo.id);
+                    setFecha(ultimo.fecha);
+                    setEstado(ultimo.estado);
+                    setFaltantes(ultimo.manzanas || []);
+                    setObservaciones(ultimo.observaciones || "");
+                    setListo(null);
+                  }}
+                  className="cursor-pointer rounded-lg border border-linea bg-tarjeta px-3 py-1.5 text-xs font-semibold text-teal transition-colors hover:border-teal"
+                >
+                  Corregir este reporte
+                </button>
+              </div>
+
+              {/* qué está hecho y qué falta de este territorio */}
+              <p className="mb-2 text-[11px] font-bold tracking-widest text-suave uppercase">
+                Cómo está el territorio
+              </p>
+              <div className="flex flex-wrap gap-1.5">
+                {LETRAS.map((l) => {
+                  const falta = ultimo.estado === "INCOMPLETO" && (ultimo.manzanas || []).includes(l);
+                  return (
+                    <span
+                      key={l}
+                      className={cn(
+                        "inline-flex items-center gap-1 rounded-lg border px-2 py-1 text-xs font-bold",
+                        ultimo.estado === "COMPLETADO"
+                          ? "border-verde/40 bg-verde/10 text-verde"
+                          : falta
+                            ? "border-gold2/50 bg-gold2/10 text-gold2"
+                            : "border-linea bg-tarjeta text-suave",
+                      )}
+                    >
+                      {l}
+                      {ultimo.estado === "COMPLETADO" ? (
+                        <CheckCircle2 size={11} />
+                      ) : falta ? (
+                        <CircleDashed size={11} />
+                      ) : (
+                        <CircleCheck size={11} />
+                      )}
+                    </span>
+                  );
+                })}
+              </div>
+              <p className="mt-2 text-xs text-suave">
+                {ultimo.estado === "COMPLETADO"
+                  ? "El territorio está completo."
+                  : `Ya se hizo la manzana ${LETRAS.filter((l) => !(ultimo.manzanas || []).includes(l)).join(", ") || "—"} y falta ${(ultimo.manzanas || []).join(", ") || "—"}.`}
+              </p>
+            </div>
           )}
 
           <div className="flex flex-col gap-4">
@@ -332,10 +404,29 @@ export default function FormularioTerritorioPersonal() {
               />
             </Campo>
 
+            {editandoReporte && (
+              <p className="rounded-xl border border-teal/40 bg-teal/10 px-3 py-2 text-xs text-teal">
+                Estás corrigiendo tu último reporte: al guardar se reemplaza, no se crea
+                uno nuevo.
+              </p>
+            )}
+
             {listo && (
               <p className="rounded-xl border border-verde/40 bg-verde/10 px-3 py-2 text-sm text-verde">
                 ¡Listo! Cargamos tu reporte.
               </p>
+            )}
+
+            {editandoReporte && (
+              <button
+                onClick={() => {
+                  setEditandoReporte(null);
+                  setListo(null);
+                }}
+                className="mx-auto cursor-pointer text-xs font-semibold text-suave hover:text-texto"
+              >
+                Dejar de corregir y cargar uno nuevo
+              </button>
             )}
 
             <Boton
@@ -348,7 +439,7 @@ export default function FormularioTerritorioPersonal() {
               ) : (
                 <Send size={16} />
               )}
-              Cargar reporte
+              {editandoReporte ? "Guardar la corrección" : "Cargar reporte"}
             </Boton>
 
             <p className="flex items-center justify-center gap-1.5 text-xs text-suave">

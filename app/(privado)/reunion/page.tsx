@@ -2,13 +2,15 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
+  AlertTriangle,
   CalendarDays,
   Check,
   ChevronLeft,
   FileDown,
   FileUp,
+  ImagePlus,
   Gem,
   HeartHandshake,
   Loader2,
@@ -48,6 +50,7 @@ import {
 import { cn } from "@/lib/utils";
 import { leerGuiaMwb, type ResultadoLectura } from "@/lib/leer-pdf";
 import { importarSemanas } from "@/lib/importar-guia";
+import { repetidosDe } from "@/lib/sincronizar";
 import type { SemanaMwb } from "@/lib/pdf";
 import {
   hoyISO,
@@ -137,6 +140,10 @@ type EstadoGuia = { tipo: "idle" | "leyendo" | "creando" | "ok" | "error"; texto
 
 export default function PaginaReunion() {
   const router = useRouter();
+  const parametros = useSearchParams();
+  // /reunion?reunion=<id> abre esa semana directo (vuelve desde las
+  // asignaciones, por ejemplo)
+  const reunionDeUrl = parametros.get("reunion");
   const [reuniones, setReuniones] = useState<Reunion[]>([]);
   const [reunionId, setReunionId] = useState<string | null>(null);
   const [registroPartes, setRegistroPartes] = useState<{
@@ -149,6 +156,8 @@ export default function PaginaReunion() {
   const [cargando, setCargando] = useState(true);
   const [estado, setEstado] = useState<EstadoGuardado>("idle");
   const [error, setError] = useState("");
+  /** títulos que salieron repetidos al leer el PDF */
+  const [advertencias, setAdvertencias] = useState<string[]>([]);
   const [fechaNueva, setFechaNueva] = useState("");
   const [citaNueva, setCitaNueva] = useState("");
   const [creando, setCreando] = useState(false);
@@ -180,6 +189,13 @@ export default function PaginaReunion() {
   const cargarBase = useCallback(async () => {
     aplicarBase(await traerBase());
   }, [aplicarBase]);
+
+  // /reunion?reunion=<id> abre directo esa semana (al volver de las
+  // asignaciones, por ejemplo)
+  useEffect(() => {
+    if (!reunionDeUrl) return;
+    setReunionId(reunionDeUrl);
+  }, [reunionDeUrl]);
 
   useEffect(() => {
     let cancelado = false;
@@ -213,6 +229,9 @@ export default function PaginaReunion() {
   );
   const cargandoPartes =
     reunionId !== null && registroPartes.reunionId !== reunionId;
+
+  /** títulos que quedaron con el mismo texto en dos temas */
+  const repetidosPartes = useMemo(() => repetidosDe(partes), [partes]);
 
   const modificarPartes = useCallback(
     (fn: (prev: ReunionParte[]) => ReunionParte[]) =>
@@ -537,6 +556,7 @@ export default function PaginaReunion() {
       setError(resultado.error);
       return;
     }
+    setAdvertencias(resultado.advertencias || []);
     const detalles: string[] = [];
     if (resultado.creadas.length) {
       detalles.push(`${resultado.creadas.length} nueva(s)`);
@@ -861,6 +881,20 @@ export default function PaginaReunion() {
               {error}
             </p>
           )}
+          {advertencias.length > 0 && (
+            <div className="mt-4 rounded-xl border border-gold2/50 bg-gold2/10 px-3 py-2 text-sm text-gold2">
+              <p className="mb-1 font-bold">Revisá estos temas contra el PDF:</p>
+              <ul className="list-inside list-disc">
+                {advertencias.map((a) => (
+                  <li key={a}>{a}</li>
+                ))}
+              </ul>
+              <p className="mt-1 text-xs">
+                El título de cada tema se puede corregir escribiéndolo en la lista de la
+                reunión.
+              </p>
+            </div>
+          )}
         </Panel>
 
         <details className="mb-8">
@@ -919,7 +953,10 @@ export default function PaginaReunion() {
             {reuniones.map((r) => (
               <button
                 key={r.id}
-                onClick={() => setReunionId(r.id)}
+                onClick={() => {
+                  setReunionId(r.id);
+                  router.replace(`/reunion?reunion=${r.id}`);
+                }}
                 className="flex cursor-pointer items-center justify-between gap-3 rounded-xl border border-linea bg-tarjeta px-4 py-3 text-left transition-colors hover:border-teal"
               >
                 <span>
@@ -1062,6 +1099,18 @@ export default function PaginaReunion() {
               </>
             )}
           </Boton>
+           {reunionId && (
+             <Boton
+               variante="secundario"
+               onClick={() => {
+                 if (!reunionId) return;
+                 router.push(`/reunion/asignaciones/${reunionId}`);
+               }}
+               title="Una imagen por persona para la Lectura de la Biblia y Seamos mejores maestros"
+             >
+               <ImagePlus size={15} /> Generar asignaciones
+             </Boton>
+           )}
            <Boton onClick={irAlPdf}>
              <FileDown size={15} /> Guardar y crear PDF
            </Boton>
@@ -1197,6 +1246,21 @@ export default function PaginaReunion() {
               )}
             </header>
           </FilaGuia>
+
+          {/* ---------- títulos repetidos ---------- */}
+          {repetidosPartes.length > 0 && (
+            <p className="mt-4 flex items-start gap-2 rounded-xl border border-gold2/50 bg-gold2/10 px-3 py-2 text-sm text-gold2">
+              <AlertTriangle size={16} className="mt-0.5 shrink-0" />
+              <span>
+                Se repiten{" "}
+                <strong>
+                  {repetidosPartes.map((t) => `“${t}”`).join(", ")}
+                </strong>{" "}
+                en dos temas. Seguramente el PDF se leyó mal: corregí el título
+                escribiéndolo acá abajo.
+              </span>
+            </p>
+          )}
 
           {/* ---------- PRESIDENTE ---------- */}
           <FilaGuia

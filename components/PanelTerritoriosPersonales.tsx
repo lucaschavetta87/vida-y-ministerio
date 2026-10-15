@@ -138,7 +138,7 @@ export default function PanelTerritoriosPersonales({
               <th className="px-5 py-2.5 font-bold">Publicador</th>
               <th className="px-5 py-2.5 font-bold">Última vez</th>
               <th className="px-5 py-2.5 font-bold">Estado</th>
-              <th className="px-5 py-2.5 font-bold">Manzanas que faltan</th>
+              <th className="px-5 py-2.5 font-bold">Estado de las manzanas</th>
               <th className="px-5 py-2.5 font-bold">Observaciones</th>
               <th className="px-5 py-2.5 text-right font-bold" />
             </tr>
@@ -176,10 +176,31 @@ export default function PanelTerritoriosPersonales({
                       <Etiqueta tono="neutro">incompleto</Etiqueta>
                     )}
                   </td>
-                  <td className="px-5 py-3 text-xs">
-                    {ultimo?.estado === "INCOMPLETO" && ultimo.manzanas.length
-                      ? ultimo.manzanas.join(", ")
-                      : "—"}
+                  <td className="px-5 py-3">
+                    {!ultimo ? (
+                      <span className="text-xs text-suave">—</span>
+                    ) : ultimo.estado === "COMPLETADO" ? (
+                      <Etiqueta tono="verde">todas hechas</Etiqueta>
+                    ) : (
+                      <div className="flex flex-wrap gap-1">
+                        {(t?.letras || []).map((l) => {
+                          const falta = ultimo.manzanas.includes(l);
+                          return (
+                            <span
+                              key={l}
+                              className={cn(
+                                "rounded border px-1.5 py-0.5 text-[10px] font-bold",
+                                falta
+                                  ? "border-gold2/50 bg-gold2/10 text-gold2"
+                                  : "border-verde/40 bg-verde/10 text-verde",
+                              )}
+                            >
+                              {l}
+                            </span>
+                          );
+                        })}
+                      </div>
+                    )}
                   </td>
                   <td className="max-w-[260px] px-5 py-3 text-xs text-suave">
                     {ultimo?.observaciones || t?.observaciones || "—"}

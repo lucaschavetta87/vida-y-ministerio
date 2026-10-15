@@ -234,6 +234,16 @@ export function armarSemanas(paginas: PaginaPdf[], anio: number): SemanaMwb[] {
     const { leido } = arranque;
 
     const fechaInicio = iso(anio, leido.mes, leido.dia1);
+
+    // a veces un encabezado viejo se cuela pegado a un texto de otra
+    // página y parece el arranque de una semana nueva. Las semanas van
+    // en orden, así que si la fecha no avanza, no es una semana nueva.
+    const anterior = semanas[semanas.length - 1];
+    if (anterior && fechaInicio <= anterior.fechaInicio) {
+      i = arranque.pagina + 1;
+      continue;
+    }
+
     const fechaFin = iso(
       anio,
       leido.mesFin,
@@ -256,6 +266,8 @@ export function armarSemanas(paginas: PaginaPdf[], anio: number): SemanaMwb[] {
         imagen: null as ImagenPdf | null,
       }))
       .sort((a, b) => ordenDe(a) - ordenDe(b));
+
+    distinguirRepetidos(ordenados, bloques);
 
     const conTema = ordenados.filter(
       (p) => p.tipo === "item" && p.numero !== null,
@@ -354,34 +366,181 @@ const ORDEN_BASE: Record<string, number> = {
   [CIERRE]: 900,
 };
 
+/** título sin el número inicial, en minúsculas */
+const claveDeTitulo = (t: string) =>
+  t
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/^\d+\.?\s*/, "");
+
+/**
+ * En algunas semanas la guía repite el título de un tema cuatro veces
+ * (por ejemplo "Hagamos discípulos") y lo único que los diferencia es
+ * la primera línea del cuerpo. Cuando pasa eso, se completa el título
+ * con un pedacito de esa primera línea para que no queden cuatro temas
+ * iguales.
+ */
+function distinguirRepetidos(ordenados: ParteMwb[], bloques: Bloque[]): void {
+  const cuenta = new Map<string, number>();
+  ordenados.forEach((p) => {
+    if (p.tipo !== "item") return;
+    const k = `${p.seccion}|${claveDeTitulo(p.titulo)}`;
+    cuenta.set(k, (cuenta.get(k) || 0) + 1);
+  });
+
+  // 1ª pasada: se les agrega la palabra en mayúsculas del cuerpo
+  // ("DE CASA EN CASA", "PREDICACIÓN INFORMAL"…)
+  ordenados.forEach((p) => {
+    if (p.tipo !== "item") return;
+    const k = `${p.seccion}|${claveDeTitulo(p.titulo)}`;
+    if ((cuenta.get(k) || 0) < 2) return;
+    if (/\([^)]*\)\s*$/.test(p.titulo)) return;
+
+    const bloque = bloques.find(
+      (b) => b.titulo === p.titulo && b.seccion === p.seccion,
+    );
+    const primera = bloque?.cuerpo[0];
+    if (!primera) return;
+
+    // la primera frase del cuerpo, sin paréntesis sueltos
+    let frase = primera.split(/(?<=\.)\s/)[0].trim();
+    const abre = frase.indexOf("(");
+    if (abre > 0) frase = frase.slice(0, abre).trim();
+    if (frase.length > 42) {
+      frase = `${frase.slice(0, 42).replace(/\s+\S*$/, "")}…`;
+    }
+    if (frase.length < 6) return;
+
+    const conRotulo = p.titulo.match(
+      /^(.*?)(\s*An[aá]lisis con el auditorio\.?)?(\s*\d+\s*mins?\.?)$/i,
+    );
+    if (conRotulo) {
+      p.titulo = `${conRotulo[1]} (${frase.toLowerCase()})${conRotulo[2] || ""}${conRotulo[3]}`;
+    } else {
+      p.titulo = `${p.titulo} (${frase.toLowerCase()})`;
+    }
+    if (bloque) bloque.titulo = p.titulo;
+  });
+
+  // 2ª pasada: si el título y la variante también se repiten (la guía los
+  // trae idénticos), se agrega la referencia del cuerpo que los separa
+  // —por ejemplo "(lmd lección 4 punto 3)"—
+  const finales = new Map<string, number>();
+  ordenados.forEach((p) => {
+    if (p.tipo !== "item") return;
+    const k = `${p.seccion}|${claveDeTitulo(p.titulo)}`;
+    finales.set(k, (finales.get(k) || 0) + 1);
+  });
+  ordenados.forEach((p) => {
+    if (p.tipo !== "item") return;
+    const k = `${p.seccion}|${claveDeTitulo(p.titulo)}`;
+    if ((finales.get(k) || 0) < 2) return;
+
+    const bloque = bloques.find(
+      (b) => b.seccion === p.seccion && b.cuerpo.length && b.titulo.startsWith(p.titulo.split(" (")[0]),
+    );
+    const ref = (bloque?.cuerpo.join(" ") || "").match(
+      /\((?:lmd|lff|w\d\d|lmc|p\d\d)[^)]*\)/i,
+    );
+    if (!ref) return;
+    p.titulo = `${p.titulo} ${ref[0]}`;
+    if (bloque) bloque.titulo = p.titulo;
+  });
+}
+
+/** a qué sección pertenece un encabezado de la guía ("TESOROS", "SEAMOS"…) */
+function seccionDeCabecera(texto: string): string | null {
+  if (/^TESOROS\b/.test(texto) || /^DE LA BIBLIA$/.test(texto)) return SECCION_TESOROS;
+  if (/^SEAMOS$/.test(texto) || /^MEJORES MAESTROS$/.test(texto)) return SECCION_SEAMOS;
+  if (/^NUESTRA$/.test(texto) || /^VIDA CRISTIANA$/.test(texto)) return SECCION_VIDA;
+  return null;
+}
+
 function leerSemana(paginas: PaginaPdf[], desde: number, hasta: number): Bloque[] {
   const bloques: Bloque[] = [];
-  let seccion = APERTURA;
+  // la sección sigue de página en página (la semana ocupa dos páginas
+  // y los encabezados de sección solo están en la primera)
+  const secciones: string[] = [APERTURA, APERTURA];
+  let ultimoLado = 0;
 
   for (let p = desde; p <= hasta; p++) {
     const pagina = paginas[p];
     const columnas = partirColumnas(pagina);
+
+    /**
+     * La sección va POR COLUMNA: en la misma altura están el título de
+     * "TESOROS DE LA BIBLIA" (izquierda) y el de "SEAMOS MEJORES
+     * MAESTROS" (derecha). Con una sola variable, el de la derecha
+     * pisaba al de la izquierda y todos los temas quedaban en la
+     * sección equivocada.
+     */
+    const dosColumnas = columnas[1].length > 0;
+    const ladoPorX = (l: LineaPdf) => (l.x >= pagina.ancho / 2 ? 1 : 0);
+
+    /**
+     * Los encabezados de sección están de dos maneras según la guía:
+     *  - uno al lado del otro ("TESOROS" a la izquierda y "SEAMOS" a la
+     *    derecha, a la misma altura): cada uno es de su columna.
+     *  - uno solo, arriba de la columna izquierda, y el contenido sigue
+     *    en la derecha: ese encabezado vale para las dos columnas.
+     *  - en las páginas de una sola columna no hay encabezado: se sigue
+     *    con la última sección que se leyó.
+     */
+    const cabeceras = pagina.lineas
+      .map((l) => ({
+        lado: dosColumnas ? l.columna : ladoPorX(l),
+        y: l.y,
+        seccion: seccionDeCabecera(l.texto),
+      }))
+      .filter((h) => h.seccion !== null);
+
+    const pareadas = cabeceras.some(
+      (h) =>
+        h.lado === 0 &&
+        cabeceras.some(
+          (k) => k.lado === 1 && Math.abs(k.y - h.y) <= 15,
+        ),
+    );
+    const ladoDe = (l: LineaPdf) => {
+      if (dosColumnas) return l.columna;
+      if (pareadas) return ladoPorX(l);
+      return ultimoLado;
+    };
+
     for (let c = 0; c < columnas.length; c++) {
       const lineas = columnas[c];
       for (let i = 0; i < lineas.length; i++) {
         const l = lineas[i];
         const texto = l.texto;
+        const lado = dosColumnas ? l.columna : ladoPorX(l);
+        const seccion = secciones[ladoDe(l)];
 
         if (!texto) continue;
         if (RE_PIE.test(texto)) continue;
         if (/^_+$/.test(texto.replace(/\s/g, ""))) continue;
         if (/^\d{1,3}$/.test(texto) && l.y < 46) continue;
 
-        if (/^TESOROS\b/.test(texto) || /^DE LA BIBLIA$/.test(texto)) {
-          seccion = SECCION_TESOROS;
-          continue;
-        }
-        if (/^SEAMOS$/.test(texto) || /^MEJORES MAESTROS$/.test(texto)) {
-          seccion = SECCION_SEAMOS;
-          continue;
-        }
-        if (/^NUESTRA$/.test(texto) || /^VIDA CRISTIANA$/.test(texto)) {
-          seccion = SECCION_VIDA;
+        const cabecera = seccionDeCabecera(texto);
+        if (cabecera) {
+          ultimoLado = lado;
+          const pareado = cabeceras.some(
+            (h) => h.lado !== lado && Math.abs(h.y - l.y) <= 15,
+          );
+          if (pareado) {
+            // los dos encabezados están a la misma altura: cada uno es
+            // de su columna
+            secciones[lado] = cabecera;
+          } else if (lado === 0) {
+            // un solo encabezado, arriba de la columna izquierda: el
+            // contenido sigue en la derecha
+            secciones[0] = cabecera;
+            secciones[1] = cabecera;
+          } else {
+            // encabezado suelto en la derecha: la columna izquierda ya
+            // se leyó antes, así que no le corresponde
+            secciones[1] = cabecera;
+          }
           continue;
         }
 
@@ -546,6 +705,27 @@ function nueva(
   };
 }
 
+/**
+ * En la guía hay temas que se llaman igual y se diferencian solo por la
+ * palabra en MAYÚSCULAS con la que arranca el cuerpo:
+ *   "DE CASA EN CASA. Ofrezca un curso..."  /  "PREDICACIÓN INFORMAL. Ofrezca..."
+ * Como el título solo no alcanza, se lo_sumamos al tema.
+ */
+function varianteDe(cuerpo: string[]): string | null {
+  for (const linea of cuerpo) {
+    const m = linea.match(
+      /^([A-ZÁÉÍÓÚÑÜ0-9][A-ZÁÉÍÓÚÑÜ0-9 ,.'’()\-]{2,38}?)\.(?=\s|$)/,
+    );
+    if (!m) continue;
+    const v = m[1].trim();
+    if (v.length < 4) continue;
+    if (v !== v.toUpperCase()) continue;
+    if (!/[A-ZÁÉÍÓÚÑ]{4}/.test(v)) continue;
+    return v.toLowerCase();
+  }
+  return null;
+}
+
 function leerItem(
   lineas: LineaPdf[],
   inicio: number,
@@ -585,15 +765,17 @@ function leerItem(
     }
     if (RE_NUMERO.test(texto) || esCabecera(texto) || RE_CANCION.test(texto)) break;
 
-    // en la guía el título va en negrita y termina con la duración; si la
-    // duración ya salió, el renglón sigue siendo título cuando va pegado
-    // al anterior (en el cuerpo los renglones van más separados)
+    // El título de un tema va en negrita y termina con la duración, que
+    // puede caer en el renglón siguiente (a veces sin negrita). Cualquier
+    // otro renglón es del cuerpo: si lo tomáramos como título se le
+    // pegaban frases del texto.
     const pegado = l.y - yAnterior <= 13.5;
+    const traeDuracion = RE_DURACION.test(texto);
     const sigueElTitulo =
       cuerpo.length === 0 &&
-      (l.negrita ||
-        (!duracion && renglonesDeTitulo < 2) ||
-        (duracion && renglonesDeTitulo < 2 && pegado));
+      renglonesDeTitulo < 2 &&
+      pegado &&
+      (l.negrita || traeDuracion);
     if (sigueElTitulo) {
       renglonesDeTitulo += 1;
       const dur = texto.match(RE_DURACION);
@@ -618,12 +800,26 @@ function leerItem(
     k += 1;
   }
 
+  const limpio = limpiar(titulo);
+  const variante = varianteDe(cuerpo);
+  let tituloFinal = limpio;
+  if (variante && !limpio.toLowerCase().includes(variante)) {
+    // "¿Qué diría? Análisis con el auditorio." → el "(de casa en casa)"
+    // va antes del rótulo, que siempre va al final
+    const conRotulo = limpio.match(
+      /^(.*?)(\s*An[aá]lisis con el auditorio\.?)$/i,
+    );
+    tituloFinal = conRotulo
+      ? `${conRotulo[1]} (${variante})${conRotulo[2]}`
+      : `${limpio} (${variante})`;
+  }
+
   return {
     bloque: {
       pagina: primera.pagina,
       seccion,
       tipo: "item",
-      titulo: `${numero !== null ? `${numero}. ` : ""}${limpiar(titulo)}`,
+      titulo: `${numero !== null ? `${numero}. ` : ""}${tituloFinal}`,
       duracion,
       cuerpo: unirParrafos(cuerpo),
       numero,
@@ -693,11 +889,44 @@ function continuar(anterior: string, nuevo: string): boolean {
 
 /* ---------------- columnas ---------------- */
 
+/**
+ * Parte la página en columnas buscando la franja vertical sin texto
+ * que separa una columna de la otra. Es más seguro que mirar el hueco
+ * entre dos renglones de la misma altura: en estas guías las dos
+ * columnas seldom están alineadas renglón por renglón.
+ */
 export function partirColumnas(pagina: PaginaPdf): LineaPdf[][] {
   const izquierda: LineaPdf[] = [];
   const derecha: LineaPdf[] = [];
+  const ancho = pagina.ancho;
+  const desde = ancho * 0.3;
+  const hasta = ancho * 0.7;
+
+  // el hueco más ancho entre dos inicios de línea, dentro de la banda
+  // central: ahí es donde termina una columna y arranca la otra
+  const inicios = pagina.lineas.map((l) => l.x).sort((a, b) => a - b);
+  let corte = -1;
+  let mejorHueco = 0;
+  for (let k = 1; k < inicios.length; k++) {
+    const a = inicios[k - 1];
+    const b = inicios[k];
+    const hueco = b - a;
+    const medio = (a + b) / 2;
+    if (medio < desde || medio > hasta) continue;
+    if (hueco > mejorHueco) {
+      mejorHueco = hueco;
+      corte = (a + b) / 2;
+    }
+  }
+
+  const hayDosColumnas =
+    corte > 0 &&
+    mejorHueco >= 40 &&
+    pagina.lineas.filter((l) => l.x < corte).length >= 2 &&
+    pagina.lineas.filter((l) => l.x >= corte).length >= 2;
+
   for (const l of pagina.lineas) {
-    (l.columna === 0 ? izquierda : derecha).push(l);
+    (hayDosColumnas && l.x >= corte ? derecha : izquierda).push(l);
   }
   for (const c of [izquierda, derecha]) c.sort((a, b) => a.y - b.y || a.x - b.x);
   return [izquierda, derecha];

@@ -32,6 +32,8 @@ export interface ResultadoImportacion {
   creadas: string[];
   actualizadas: string[];
   omitidas: string[];
+  /** avisos: títulos que salieron repetidos y hay que revisar */
+  advertencias: string[];
   error: string;
 }
 
@@ -46,6 +48,7 @@ export async function importarSemanas(
     creadas: [],
     actualizadas: [],
     omitidas: [],
+    advertencias: [],
     error: "",
   };
 
@@ -90,6 +93,11 @@ export async function importarSemanas(
           reunion: nueva as Reunion,
           participantes,
         });
+        if (plan.titulosRepetidos.length) {
+          salida.advertencias.push(
+            `Semana del ${semana.titulo}: se repite el título “${plan.titulosRepetidos.join("”, “")}”. Revisá esos temas contra el PDF.`,
+          );
+        }
         if (plan.aCrear.length) {
           const { error: errPartes } = await supabase
             .from("reunion_partes")
@@ -120,6 +128,12 @@ export async function importarSemanas(
         reunion: actual,
         participantes,
       });
+
+      if (plan.titulosRepetidos.length) {
+        salida.advertencias.push(
+          `Semana del ${semana.titulo}: se repite el título “${plan.titulosRepetidos.join("”, “")}”. Revisá esos temas contra el PDF.`,
+        );
+      }
 
       for (const c of plan.aActualizar) {
         const { error } = await supabase

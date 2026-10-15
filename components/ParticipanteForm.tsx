@@ -422,7 +422,7 @@ export default function ParticipanteForm({
 
               <div>
                 <span className="mb-1.5 block text-[11px] font-bold tracking-widest text-suave uppercase">
-                  Rol en el ministerio
+                  Privilegios de Servicio
                 </span>
                 <div className="grid gap-2 sm:grid-cols-2">
                   {CLASIFICACIONES.map(({ valor, texto }) => {

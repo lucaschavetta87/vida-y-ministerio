@@ -27,6 +27,7 @@ import { Boton, Campo, Etiqueta, Input, Panel } from "@/components/ui";
 import { supabase } from "@/lib/supabase";
 import {
   CONFIG_POR_DEFECTO,
+  fechaCorta,
   hoyClave,
   nombreDelMes,
   type ConfigSalidas,
@@ -132,7 +133,8 @@ export default function FormularioSalidas({
   const [salidas, setSalidas] = useState<SalidaMinisterio[]>([]);
   const [filas, setFilas] = useState<Fila[]>([]);
   const [config, setConfig] = useState<ConfigSalidas>(CONFIG_POR_DEFECTO);
-  const [territoriosHechos, setTerritoriosHechos] = useState<number[]>([]);
+  /** número de territorio → última fecha en que se completó */
+  const [territoriosHechos, setTerritoriosHechos] = useState<Record<number, string>>({});
   /** número de territorio → publicador que lo tiene asignado */
   const [personales, setPersonales] = useState<Record<number, string>>({});
   const [cargando, setCargando] = useState(true);
@@ -193,19 +195,32 @@ export default function FormularioSalidas({
   }, []);
 
   const cargarTerritorios = useCallback(async () => {
-    const { data: cabeceras } = await supabase.from("territorios_salidas").select("id");
-    const ids = ((cabeceras || []) as { id: string }[]).map((s) => s.id);
-    if (!ids.length) return setTerritoriosHechos([]);
+    const { data: cabeceras } = await supabase
+      .from("territorios_salidas")
+      .select("id, fecha");
+    const lista = (cabeceras || []) as { id: string; fecha: string }[];
+    if (!lista.length) return setTerritoriosHechos({});
+
+    const fechaDe = new Map(lista.map((s) => [s.id, s.fecha]));
     const { data } = await supabase
       .from("territorios_salidas_detalle")
-      .select("territorio_numero")
-      .in("salida_id", ids)
+      .select("salida_id, territorio_numero")
+      .in(
+        "salida_id",
+        lista.map((s) => s.id),
+      )
       .eq("estado", "COMPLETADO");
-    setTerritoriosHechos(
-      [...new Set((data || []).map((d) => d.territorio_numero as number))].sort(
-        (a, b) => a - b,
-      ),
-    );
+
+    // última fecha de cada territorio que quedó completado
+    const mapa: Record<number, string> = {};
+    ((data || []) as { salida_id: string; territorio_numero: number }[]).forEach((d) => {
+      const fecha = fechaDe.get(d.salida_id);
+      if (!fecha) return;
+      if (!mapa[d.territorio_numero] || fecha > mapa[d.territorio_numero]) {
+        mapa[d.territorio_numero] = fecha;
+      }
+    });
+    setTerritoriosHechos(mapa);
   }, []);
 
   /** Los territorios que ya son personales de alguien. */
@@ -231,6 +246,28 @@ export default function FormularioSalidas({
     ]).then(() => setCargando(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ancla]);
+
+  /**
+   * Cuando la salida se carga desde /territorios en otra pestaña,
+   * al volver acá se refrescan los territorios ya hechos. No toca
+   * la planilla que se está llenando.
+   */
+  const refrescarTerritorios = useCallback(() => {
+    void cargarTerritorios();
+    void cargarPersonales();
+  }, [cargarTerritorios, cargarPersonales]);
+
+  useEffect(() => {
+    const alVolver = () => {
+      if (document.visibilityState === "visible") refrescarTerritorios();
+    };
+    window.addEventListener("focus", alVolver);
+    document.addEventListener("visibilitychange", alVolver);
+    return () => {
+      window.removeEventListener("focus", alVolver);
+      document.removeEventListener("visibilitychange", alVolver);
+    };
+  }, [refrescarTerritorios]);
 
   /* ---------------- edición ---------------- */
 
@@ -303,32 +340,67 @@ export default function FormularioSalidas({
   const celda =
     "w-full bg-transparent px-2 py-2 text-sm font-semibold uppercase outline-none placeholder:font-normal placeholder:text-suave/50";
 
+  const hechos = Object.keys(territoriosHechos)
+    .map(Number)
+    .sort((a, b) => a - b);
   const sinHacer = Array.from({ length: 69 }, (_, i) => i + 1).filter(
-    (n) => !territoriosHechos.includes(n),
+    (n) => !territoriosHechos[n],
   );
 
   return (
     <div className="flex flex-col gap-6">
-      {/* ---- pendientes ---- */}
+      {/* ---- territorios hechos y pendientes ---- */}
       <Panel className="p-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h2 className="flex items-center gap-2 text-sm font-black">
-            <CalendarDays size={16} /> Territorios que faltan
+            <CalendarDays size={16} /> Territorios del mes
           </h2>
           <Etiqueta tono={sinHacer.length ? "neutro" : "verde"}>
-            {sinHacer.length} de 69 sin completar
+            {hechos.length} de 69 sin completar
           </Etiqueta>
         </div>
-        <p className="mt-2 text-sm leading-relaxed">
-          {sinHacer.map((n) => (
-            <span
-              key={n}
-              className="mr-1.5 inline-block rounded border border-linea bg-tarjeta2 px-1.5 py-0.5 text-xs"
-            >
-              {n}
-            </span>
-          ))}
-        </p>
+
+        {hechos.length > 0 && (
+          <div className="mt-4">
+            <p className="mb-2 text-[11px] font-bold tracking-widest text-verde uppercase">
+              Ya se hicieron
+            </p>
+            <p className="leading-relaxed">
+              {hechos.map((n) => (
+                <span
+                  key={n}
+                  title={`Última vez: ${fechaCorta(territoriosHechos[n])}`}
+                  className="mr-1.5 mb-1 inline-flex items-center gap-1 rounded border border-verde/40 bg-verde/10 px-1.5 py-0.5 text-xs font-semibold text-verde"
+                >
+                  {n}
+                  <span className="text-[9px] font-normal opacity-80">
+                    {fechaCorta(territoriosHechos[n]).replace(/ de .*/, "")}
+                  </span>
+                </span>
+              ))}
+            </p>
+          </div>
+        )}
+
+        <div className={hechos.length ? "mt-4" : "mt-4"}>
+          <p className="mb-2 text-[11px] font-bold tracking-widest text-suave uppercase">
+            Faltan ({sinHacer.length})
+          </p>
+          <p className="leading-relaxed">
+            {sinHacer.length === 0 ? (
+              <span className="text-sm text-verde">Los 69 territorios están completos.</span>
+            ) : (
+              sinHacer.map((n) => (
+                <span
+                  key={n}
+                  className="mr-1.5 mb-1 inline-block rounded border border-linea bg-tarjeta2 px-1.5 py-0.5 text-xs"
+                >
+                  {n}
+                </span>
+              ))
+            )}
+          </p>
+        </div>
       </Panel>
 
       {/* ---- la semana ---- */}
@@ -543,7 +615,7 @@ export default function FormularioSalidas({
                                 <AvisosTerritorios
                                   numeros={numerosDeTerritorios(f.territorios)}
                                   personales={personales}
-                                  hechos={territoriosHechos}
+                                  hechos={Object.keys(territoriosHechos).map(Number)}
                                 />
                               </>
                             )}

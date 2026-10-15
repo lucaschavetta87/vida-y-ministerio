@@ -8,6 +8,7 @@ import {
   MapPin,
   NotebookPen,
   Pencil,
+  RotateCcw,
   Settings2,
   Trash2,
 } from "lucide-react";
@@ -93,6 +94,24 @@ export default function PaginaServicio() {
       })),
     );
   }, []);
+
+  /**
+   * Si una salida se carga desde /territorios en otra pestaña, al
+   * volver se refresca el mapa y las listas (no toca la planilla).
+   */
+  useEffect(() => {
+    const alVolver = () => {
+      if (document.visibilityState !== "visible") return;
+      void cargarTerritorios();
+      void cargarSalidas();
+    };
+    window.addEventListener("focus", alVolver);
+    document.addEventListener("visibilitychange", alVolver);
+    return () => {
+      window.removeEventListener("focus", alVolver);
+      document.removeEventListener("visibilitychange", alVolver);
+    };
+  }, [cargarTerritorios, cargarSalidas]);
 
   useEffect(() => {
     Promise.all([
@@ -241,6 +260,16 @@ export default function PaginaServicio() {
                 ))}
               </Select>
             </Campo>
+            <Boton
+              variante="fantasma"
+              onClick={() => {
+                void cargarTerritorios();
+                void cargarSalidas();
+              }}
+              title="Volver a leer los territorios hechos"
+            >
+              <RotateCcw size={15} /> Actualizar
+            </Boton>
             <Boton
               variante="secundario"
               onClick={() => setEditandoTerritorios(true)}

@@ -35,6 +35,26 @@ export interface PlanSincronizacion {
   aActualizar: { id: string; cambios: Partial<ReunionParte> }[];
   aBorrar: string[];
   sinCambios: boolean;
+  /** títulos que quedaron con el mismo texto en dos temas distintos */
+  titulosRepetidos: string[];
+}
+
+/**
+ * Títulos que se repiten dentro de la misma reunión (mismo texto, distinto
+ * número). Casi siempre es que el lector del PDF tomó dos renglones del
+ * mismo tema, así que hay que avisar para que se revisen.
+ */
+export function repetidosDe(filas: { titulo: string }[]): string[] {
+  const porClave = new Map<string, number>();
+  filas.forEach((f) => {
+    const clave = claveTitulo(f.titulo);
+    if (!clave) return;
+    porClave.set(clave, (porClave.get(clave) || 0) + 1);
+  });
+  return [...porClave.entries()]
+    .filter(([, n]) => n > 1)
+    .map(([clave]) => clave)
+    .map((c) => c.charAt(0).toUpperCase() + c.slice(1));
 }
 
 const slugId = (roles: Rol[], slug: string) =>
@@ -252,6 +272,7 @@ export function armarPlan(opts: {
     (reunion.cita_biblica || "") !== (programa.cita || "");
 
   return {
+    titulosRepetidos: repetidosDe(filas),
     reunion: {
       titulo: programa.titulo || reunion.titulo,
       cita_biblica: programa.cita || null,

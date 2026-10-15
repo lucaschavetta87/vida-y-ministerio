@@ -125,6 +125,7 @@ export async function POST(req: NextRequest) {
 
   let cuerpo: {
     publicador_id?: string;
+    reporte_id?: string;
     fecha?: string;
     estado?: string;
     manzanas?: string[];
@@ -163,19 +164,47 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: datos.problema }, { status: 403 });
 
     const ahora = new Date().toISOString();
-    const { error } = await supabase.from("territorios_personales_reportes").insert({
-      publicador_id: publicadorId,
-      territorio_numero: datos.asignacion.territorio_numero,
+    const campos = {
       fecha,
       estado,
       manzanas,
       observaciones: cuerpo.observaciones?.trim() || null,
-      creado_en: ahora,
       actualizado_en: ahora,
-    });
+    };
+
+    // si viene un reporte, se corrige ese mismo
+    if (cuerpo.reporte_id) {
+      const { data: previo } = await supabase
+        .from("territorios_personales_reportes")
+        .select("id, publicador_id")
+        .eq("id", cuerpo.reporte_id)
+        .maybeSingle();
+      if (!previo || previo.publicador_id !== publicadorId)
+        return NextResponse.json(
+          { error: "Ese reporte no es tuyo." },
+          { status: 403 },
+        );
+
+      const { error } = await supabase
+        .from("territorios_personales_reportes")
+        .update(campos)
+        .eq("id", cuerpo.reporte_id);
+      if (error) throw error;
+
+      return NextResponse.json({ ok: true, estado, editado: true });
+    }
+
+    const { error } = await supabase
+      .from("territorios_personales_reportes")
+      .insert({
+        publicador_id: publicadorId,
+        territorio_numero: datos.asignacion.territorio_numero,
+        ...campos,
+        creado_en: ahora,
+      });
     if (error) throw error;
 
-    return NextResponse.json({ ok: true, estado });
+    return NextResponse.json({ ok: true, estado, editado: false });
   } catch (error) {
     return NextResponse.json({ error: (error as Error).message }, { status: 500 });
   }
