@@ -72,10 +72,20 @@ function rolEsperado(
 
   if (p.seccion === "APERTURA" || p.seccion === "CIERRE") {
     if (/oraci[oó]n/.test(t)) return por("oracion");
-    if (/palabras de (introducci|conclusi)/.test(t)) return por("presidente");
+    if (/palabras de (introducci|conclusi)/.test(t))
+      return por("presidente_entre_semana");
     return null;
   }
   if (p.tipo !== "item") return /oraci[oó]n/.test(t) ? por("oracion") : null;
+
+  // los discursos de Seamos mejores maestros los puede dar cualquier
+  // hombre que tenga esa asignación, sin importar su clasificación
+  if (
+    p.seccion === "SEAMOS MEJORES MAESTROS" &&
+    /discurso/.test(t)
+  ) {
+    return por("discursos_seamos");
+  }
 
   const claves: [RegExp, string][] = [
     [/perlas/, "perlas"],

@@ -50,12 +50,11 @@ export function fechaDeReunion(
   ).padStart(2, "0")}`;
 }
 
-/** "Chavetta, Nahiara" → "Nahiara Chavetta" (o en mayúsculas) */
-export function nombreComoFigura(nombre: string, mayusculas = false): string {
+/** "Chavetta, Nahiara" → "Nahiara Chavetta" (como figura en la lista) */
+export function nombreComoFigura(nombre: string): string {
   const limpio = (nombre || "").trim();
   const m = limpio.match(/^(.+?),\s*(.+)$/);
-  const salida = m ? `${m[2].trim()} ${m[1].trim()}` : limpio;
-  return mayusculas ? salida.toUpperCase() : salida;
+  return m ? `${m[2].trim()} ${m[1].trim()}` : limpio;
 }
 
 /**

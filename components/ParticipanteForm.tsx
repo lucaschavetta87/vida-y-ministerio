@@ -19,6 +19,7 @@ import {
   type Participante,
   type Rol,
 } from "@/lib/tipos";
+import { REQUISITOS_POR_ROL } from "@/lib/roles";
 import {
   anioServicioActual,
   etiquetaAnioServicio,
@@ -662,6 +663,11 @@ export default function ParticipanteForm({
                       {!habilitado && (
                         <span className="block text-[11px] text-suave">
                           No disponible para {ficha.genero}
+                        </span>
+                      )}
+                      {habilitado && REQUISITOS_POR_ROL[rol.slug] && (
+                        <span className="block text-[11px] text-suave">
+                          {REQUISITOS_POR_ROL[rol.slug]}
                         </span>
                       )}
                     </span>

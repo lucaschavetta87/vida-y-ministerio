@@ -77,7 +77,8 @@ export function dibujarAsignacion(a: AsignacionImagen): HTMLCanvasElement {
   };
 
   fila("Nombre:", nombreComoFigura(a.nombre));
-  if (a.ayudante) fila("Ayudante:", nombreComoFigura(a.ayudante, true));
+  // el ayudante va tal cual figura en la lista de la congregación
+  if (a.ayudante) fila("Ayudante:", nombreComoFigura(a.ayudante));
   fila("Fecha:", fechaLargaAsignacion(a.fecha));
 
   ctx.fillStyle = NEGRO;

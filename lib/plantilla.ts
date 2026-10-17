@@ -36,7 +36,7 @@ export const PLANTILLA_PARTES: PartePlantilla[] = [
     titulo: "Palabras de introducción",
     duracion: "1 min.",
     descripcion: "",
-    slug: "presidente",
+    slug: "presidente_entre_semana",
   },
   {
     orden: 30,
@@ -172,7 +172,7 @@ export const PLANTILLA_PARTES: PartePlantilla[] = [
     titulo: "Palabras de conclusión",
     duracion: "3 mins.",
     descripcion: "",
-    slug: "presidente",
+    slug: "presidente_entre_semana",
   },
   {
     orden: 140,

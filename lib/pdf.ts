@@ -890,44 +890,16 @@ function continuar(anterior: string, nuevo: string): boolean {
 /* ---------------- columnas ---------------- */
 
 /**
- * Parte la página en columnas buscando la franja vertical sin texto
- * que separa una columna de la otra. Es más seguro que mirar el hueco
- * entre dos renglones de la misma altura: en estas guías las dos
- * columnas seldom están alineadas renglón por renglón.
+ * Parte la página en dos columnas. En la guía la columna de la derecha
+ * arranca pasado la mitad de la hoja; con ese criterio andan bien los
+ * tres formatos (encabezados de sección uno al lado del otro, o el
+ * encabezado una sola vez y el contenido siguiendo en la derecha).
  */
 export function partirColumnas(pagina: PaginaPdf): LineaPdf[][] {
   const izquierda: LineaPdf[] = [];
   const derecha: LineaPdf[] = [];
-  const ancho = pagina.ancho;
-  const desde = ancho * 0.3;
-  const hasta = ancho * 0.7;
-
-  // el hueco más ancho entre dos inicios de línea, dentro de la banda
-  // central: ahí es donde termina una columna y arranca la otra
-  const inicios = pagina.lineas.map((l) => l.x).sort((a, b) => a - b);
-  let corte = -1;
-  let mejorHueco = 0;
-  for (let k = 1; k < inicios.length; k++) {
-    const a = inicios[k - 1];
-    const b = inicios[k];
-    const hueco = b - a;
-    const medio = (a + b) / 2;
-    if (medio < desde || medio > hasta) continue;
-    if (hueco > mejorHueco) {
-      mejorHueco = hueco;
-      corte = (a + b) / 2;
-    }
-  }
-
-  const hayDosColumnas =
-    corte > 0 &&
-    mejorHueco >= 40 &&
-    pagina.lineas.filter((l) => l.x < corte).length >= 2 &&
-    pagina.lineas.filter((l) => l.x >= corte).length >= 2;
-
-  for (const l of pagina.lineas) {
-    (hayDosColumnas && l.x >= corte ? derecha : izquierda).push(l);
-  }
+  const mitad = pagina.ancho * 0.45;
+  for (const l of pagina.lineas) (l.x >= mitad ? derecha : izquierda).push(l);
   for (const c of [izquierda, derecha]) c.sort((a, b) => a.y - b.y || a.x - b.x);
   return [izquierda, derecha];
 }

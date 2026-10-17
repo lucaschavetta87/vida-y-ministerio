@@ -310,6 +310,7 @@ export default function PdfAsignacionesMecanicas() {
       {/* -------- entre semana -------- */}
       <section className="break-inside-avoid">
         <Titulo dia={diaDe(ram.dia_entresemana)} />
+
         <Grilla columnas={columnas(ram, false)} />
       </section>
 

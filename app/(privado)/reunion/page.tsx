@@ -5,6 +5,8 @@ import type { ReactNode } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   AlertTriangle,
+  ArrowDown,
+  ArrowUp,
   CalendarDays,
   Check,
   ChevronLeft,
@@ -13,6 +15,7 @@ import {
   ImagePlus,
   Gem,
   HeartHandshake,
+  ListOrdered,
   Loader2,
   Music,
   Pencil,
@@ -31,6 +34,7 @@ import {
 } from "@/components/ui";
 import BuscadorParticipante from "@/components/BuscadorParticipante";
 import { supabase } from "@/lib/supabase";
+import { rolAdmiteClasificacion } from "@/lib/roles";
 import type {
   Asignacion,
   EstadoGuardado,
@@ -304,7 +308,10 @@ export default function PaginaReunion() {
           .map((a) => a.participante_id),
       );
       return activos.filter(
-        (p) => conRol.has(p.id) && rol.generos_permitidos.includes(p.genero),
+        (p) =>
+          conRol.has(p.id) &&
+          rol.generos_permitidos.includes(p.genero) &&
+          rolAdmiteClasificacion(rol, p.clasificacion),
       );
     },
     [activos, roles, participanteRoles],
@@ -333,7 +340,11 @@ export default function PaginaReunion() {
   const historialVisible = errorHistorial ? undefined : historial;
 
   /* ---------- presidente ---------- */
-  const rolPresidente = roles.find((r) => r.slug === "presidente");
+  // en la reunión se preside la reunión de entre semana:
+  // solo los que tienen esa asignación tildada
+  const rolPresidente = roles.find(
+    (r) => r.slug === "presidente_entre_semana",
+  );
   const rolEstudio = roles.find((r) => r.slug === "estudio");
   const rolLectura = roles.find((r) => r.slug === "lectura");
   const partesPresidente = useMemo(
@@ -470,6 +481,86 @@ export default function PaginaReunion() {
 
   const asignar = (parte: ReunionParte, ids: string[]) =>
     persistirParte(parte.id, { participante_ids: ids });
+
+  /** mueve un tema un lugar arriba o abajo dentro de su misma sección */
+  const moverTema = async (parte: ReunionParte, delta: -1 | 1) => {
+    const ordenadas = [...partes]
+      .sort((a, b) => a.orden - b.orden)
+      .filter((p) => p.seccion === parte.seccion);
+    const i = ordenadas.findIndex((p) => p.id === parte.id);
+    const destino = i + delta;
+    if (i < 0 || destino < 0 || destino >= ordenadas.length) return;
+    const actual = ordenadas[i];
+    const otro = ordenadas[destino];
+    const cambios = [
+      { id: actual.id, orden: otro.orden },
+      { id: otro.id, orden: actual.orden },
+    ];
+    modificarPartes((prev) =>
+      prev.map((p) => {
+        const c = cambios.find((x) => x.id === p.id);
+        return c ? { ...p, orden: c.orden } : p;
+      }),
+    );
+    setEstado("guardando");
+    for (const c of cambios) {
+      const { error } = await supabase
+        .from("reunion_partes")
+        .update({ orden: c.orden })
+        .eq("id", c.id);
+      if (error) {
+        setEstado("error");
+        setError(traducirError(error.message));
+        return;
+      }
+    }
+    setEstado("guardado");
+  };
+
+  /** deja los temas como los de la guía: 1, 2, 3 de Tesoros y después */
+  const ordenarTemas = async () => {
+    const RANGO: Record<string, number> = {
+      APERTURA: 0,
+      "TESOROS DE LA BIBLIA": 100,
+      "SEAMOS MEJORES MAESTROS": 200,
+      "NUESTRA VIDA CRISTIANA": 300,
+      CIERRE: 900,
+    };
+    const numeroDe = (t: string) => Number(t.match(/^(\d+)\./)?.[1] ?? 0);
+    const ordenadas = [...partes].sort((a, b) => {
+      const ra = RANGO[a.seccion] ?? 400;
+      const rb = RANGO[b.seccion] ?? 400;
+      if (ra !== rb) return ra - rb;
+      const na = numeroDe(a.titulo);
+      const nb = numeroDe(b.titulo);
+      if (na !== nb) return (na || 99) - (nb || 99);
+      return a.orden - b.orden;
+    });
+
+    const cambios: { id: string; orden: number }[] = [];
+    ordenadas.forEach((p, i) => {
+      const nuevo = (i + 1) * 10;
+      if (p.orden !== nuevo) cambios.push({ id: p.id, orden: nuevo });
+    });
+    if (!cambios.length) return;
+
+    modificarPartes((prev) =>
+      prev.map((p) => ({ ...p, orden: cambios.find((c) => c.id === p.id)?.orden ?? p.orden })),
+    );
+    setEstado("guardando");
+    for (const c of cambios) {
+      const { error } = await supabase
+        .from("reunion_partes")
+        .update({ orden: c.orden })
+        .eq("id", c.id);
+      if (error) {
+        setEstado("error");
+        setError(traducirError(error.message));
+        return;
+      }
+    }
+    setEstado("guardado");
+  };
 
   const asignarLector = (parte: ReunionParte, id: string | null) =>
     persistirParte(parte.id, { lector_id: id });
@@ -1099,6 +1190,15 @@ export default function PaginaReunion() {
               </>
             )}
           </Boton>
+          {modoEdicion && (
+            <Boton
+              variante="secundario"
+              onClick={ordenarTemas}
+              title="Reacomoda los temas como en la guía: 1, 2, 3 de Tesoros y después los demás"
+            >
+              <ListOrdered size={15} /> Ordenar temas
+            </Boton>
+          )}
            {reunionId && (
              <Boton
                variante="secundario"
@@ -1275,7 +1375,7 @@ export default function PaginaReunion() {
                   valor={presidenteId}
                   onChange={(id) => elegirPresidente(id)}
                   ocupados={ocupadosEn("")}
-                  vacioTexto="Nadie tiene el rol Presidente tildado"
+                  vacioTexto="Nadie tiene el rol “Presidente (entre semana)” tildado"
                 />
               ) : (
                 <p className="text-[11px] text-suave">
@@ -1296,7 +1396,9 @@ export default function PaginaReunion() {
             </div>
             <p className="mt-1 max-w-[46rem] text-[11px] text-suave">
               Se asigna a “Palabras de introducción” y “Palabras de conclusión”.
-              Puede repetirse en otras partes de la misma reunión.
+              Puede repetirse en otras partes de la misma reunión. Preside la
+              reunión de entre semana, así que solo aparecen los hombres que
+              tienen esa asignación tildada y son ancianos.
             </p>
           </FilaGuia>
 
@@ -1405,6 +1507,7 @@ export default function PaginaReunion() {
                         guardarCampo={guardarCampo}
                         persistir={persistirParte}
                         eliminarParte={eliminarParte}
+                    moverTema={moverTema}
                         roles={roles}
                       />
                     </FilaGuia>
@@ -1438,6 +1541,7 @@ export default function PaginaReunion() {
                     guardarCampo={guardarCampo}
                     persistir={persistirParte}
                     eliminarParte={eliminarParte}
+                    moverTema={moverTema}
                     roles={roles}
                   />
                 </FilaGuia>
@@ -1531,6 +1635,7 @@ function GuiaPunto({
   guardarCampo,
   persistir,
   eliminarParte,
+  moverTema,
   roles,
 }: {
   parte: ReunionParte;
@@ -1540,6 +1645,7 @@ function GuiaPunto({
   guardarCampo: (id: string, cambios: Partial<ReunionParte>) => Promise<void>;
   persistir: (id: string, cambios: Partial<ReunionParte>) => Promise<void>;
   eliminarParte: (p: ReunionParte) => Promise<void>;
+  moverTema: (p: ReunionParte, delta: -1 | 1) => void;
   roles: Rol[];
 }) {
   const lineas = lineasDe(parte.descripcion);
@@ -1561,9 +1667,27 @@ function GuiaPunto({
           <h3 className={cn("text-base font-bold", color)}>{parte.titulo}</h3>
         )}
         {modoEdicion && (
+          <span className="ml-auto flex shrink-0 items-center gap-1">
+            <button
+              onClick={() => moverTema(parte, -1)}
+              className="cursor-pointer rounded-md border border-linea p-1.5 text-suave transition-colors hover:border-teal hover:text-teal"
+              title="Subir este tema un lugar"
+            >
+              <ArrowUp size={13} />
+            </button>
+            <button
+              onClick={() => moverTema(parte, 1)}
+              className="cursor-pointer rounded-md border border-linea p-1.5 text-suave transition-colors hover:border-teal hover:text-teal"
+              title="Bajar este tema un lugar"
+            >
+              <ArrowDown size={13} />
+            </button>
+          </span>
+        )}
+        {modoEdicion && (
           <button
             onClick={() => eliminarParte(parte)}
-            className="ml-auto shrink-0 cursor-pointer rounded-md border border-linea p-1.5 text-suave transition-colors hover:border-rojo hover:text-rojo"
+            className="shrink-0 cursor-pointer rounded-md border border-linea p-1.5 text-suave transition-colors hover:border-rojo hover:text-rojo"
             title="Eliminar parte"
           >
             <Trash2 size={13} />

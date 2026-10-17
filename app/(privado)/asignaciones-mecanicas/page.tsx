@@ -207,10 +207,6 @@ export default function AsignacionesMecanicasPage() {
     [participantes],
   );
 
-  const ancianos = useMemo(
-    () => hombres.filter((p) => tieneClasificacion(p, "ANCIANO")),
-    [hombres],
-  );
   const ancianosOServidores = useMemo(
     () =>
       hombres.filter(
@@ -221,6 +217,10 @@ export default function AsignacionesMecanicasPage() {
     [hombres],
   );
 
+  const ancianos = useMemo(
+    () => hombres.filter((p) => tieneClasificacion(p, "ANCIANO")),
+    [hombres],
+  );
   const idsRol = useCallback(
     (slug: string): Set<string> => {
       const rol = roles.find((r) => r.slug === slug);
@@ -333,6 +333,10 @@ export default function AsignacionesMecanicasPage() {
   }, [aptos, paraMicrofonos]);
   const aptosAudioVideo = useMemo(() => aptos("audio_video"), [aptos]);
   const aptosPlataforma = useMemo(() => aptos("plataforma"), [aptos]);
+  const aptosPresidente = useMemo(
+    () => aptos("presidente", undefined, ancianosOServidores),
+    [aptos, ancianosOServidores],
+  );
   const aptosOracion = useMemo(() => aptos("oracion"), [aptos]);
   const aptosOracionFinal = useMemo(() => aptos("oracion_fin"), [aptos]);
 
@@ -535,7 +539,7 @@ export default function AsignacionesMecanicasPage() {
             <Input value={ram.dia_finsemana || ""} onChange={(e) => set("dia_finsemana", e.target.value)} />
           </Campo>
           <Campo label="Presidente (Anciano/Siervo Ministerial)">
-            <SelectorPersona todos={participantes} candidatos={ancianosOServidores} valor={ram.presidente_fin_semana_id} tareasDe={avisosDe("presidente_fin_semana_id")} onChange={(id) => set("presidente_fin_semana_id", id)} vacioTexto="Sin ancianos/siervos cargados" temasDe={temasDe} historial={historial} hoy={hoy} />
+            <SelectorPersona todos={participantes} candidatos={aptosPresidente} valor={ram.presidente_fin_semana_id} tareasDe={avisosDe("presidente_fin_semana_id")} onChange={(id) => set("presidente_fin_semana_id", id)} vacioTexto="Nadie tiene el rol “Presidente (fin de semana)” tildado y sea anciano o siervo ministerial" temasDe={temasDe} historial={historial} hoy={hoy} />
           </Campo>
           <Campo label="Oración (Asignaciones)">
             <SelectorPersona todos={participantes} candidatos={aptosOracion} valor={ram.oracion_asignaciones_id} tareasDe={avisosDe("oracion_asignaciones_id")} onChange={(id) => set("oracion_asignaciones_id", id)} temasDe={temasDe} historial={historial} hoy={hoy} />
