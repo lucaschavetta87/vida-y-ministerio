@@ -99,10 +99,12 @@ export default function PaginaPdfReunion() {
         setParticipantes((pt.data as Participante[]) || []);
 
         // el presidente es el que se elige arriba en la pantalla de la
-        // reunión (rol "Presidente": Palabras de introducción/conclusión)
-        const rolPresidente = ((roles.data as { id: string; slug: string }[]) || []).find(
-          (x) => x.slug === "presidente",
-        );
+        // reunión (rol "Presidente (entre semana)": Palabras de
+        // introducción/conclusión); si no, el de fin de semana
+        const slugs = (roles.data as { id: string; slug: string }[]) || [];
+        const rolPresidente =
+          slugs.find((x) => x.slug === "presidente_entre_semana") ||
+          slugs.find((x) => x.slug === "presidente");
         const partesReunion = (p.data as ReunionParte[]) || [];
         const deLaReunion = rolPresidente
           ? partesReunion

@@ -167,6 +167,7 @@ export default function PaginaReunion() {
   const [creando, setCreando] = useState(false);
   const [modoEdicion, setModoEdicion] = useState(false);
   const [historial, setHistorial] = useState<Historial>(new Map());
+  const [proximas, setProximas] = useState<Historial>(new Map());
   const [errorHistorial, setErrorHistorial] = useState("");
   const [estadoGuia, setEstadoGuia] = useState<EstadoGuia>({
     tipo: "idle",
@@ -198,6 +199,7 @@ export default function PaginaReunion() {
   // asignaciones, por ejemplo)
   useEffect(() => {
     if (!reunionDeUrl) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setReunionId(reunionDeUrl);
   }, [reunionDeUrl]);
 
@@ -211,20 +213,42 @@ export default function PaginaReunion() {
     };
   }, [aplicarBase]);
 
-  /* ---------- historial (una sola vez) ---------- */
+  /* ---------- historial: se vuelve a traer al cargar, al asignar
+     y cada vez que la pestaña vuelve a estar a la vista ---------- */
+  const guardarHistorial = (h: Historial, p: Historial, e: string) => {
+    setHistorial(h);
+    setProximas(p);
+    setErrorHistorial(e);
+  };
+
+  const cargarHistorial = useCallback(
+    () =>
+      traerHistorial(hoy).then(({ historial, proximas, error }) => {
+        guardarHistorial(historial, proximas, error);
+      }),
+    [hoy],
+  );
+
   useEffect(() => {
     if (cargando) return;
     let cancelado = false;
-    traerHistorial(hoy).then(({ historial: h, error: e }) => {
+    traerHistorial(hoy).then((datos) => {
       if (cancelado) return;
-      setHistorial(h);
-      if (e) setErrorHistorial(e);
+      guardarHistorial(datos.historial, datos.proximas, datos.error);
     });
+    const alVolver = () => {
+      if (cancelado || document.visibilityState !== "visible") return;
+      traerHistorial(hoy).then((datos) => {
+        if (cancelado) return;
+        guardarHistorial(datos.historial, datos.proximas, datos.error);
+      });
+    };
+    document.addEventListener("visibilitychange", alVolver);
     return () => {
       cancelado = true;
+      document.removeEventListener("visibilitychange", alVolver);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cargando]);
+  }, [cargando, hoy]);
 
   const partes: ReunionParte[] = useMemo(
     () =>
@@ -292,6 +316,10 @@ export default function PaginaReunion() {
   const activos = useMemo(
     () => participantes.filter((p) => p.activo),
     [participantes],
+  );
+  const hombresActivos = useMemo(
+    () => activos.filter((p) => p.genero === "HOMBRE"),
+    [activos],
   );
 
   const asignadas = partes.filter((p) => (p.participante_ids || []).length > 0)
@@ -479,8 +507,11 @@ export default function PaginaReunion() {
     }
   };
 
-  const asignar = (parte: ReunionParte, ids: string[]) =>
-    persistirParte(parte.id, { participante_ids: ids });
+  const asignar = (parte: ReunionParte, ids: string[]) => {
+    void persistirParte(parte.id, { participante_ids: ids }).then(() =>
+      cargarHistorial(),
+    );
+  };
 
   /** mueve un tema un lugar arriba o abajo dentro de su misma sección */
   const moverTema = async (parte: ReunionParte, delta: -1 | 1) => {
@@ -708,6 +739,7 @@ export default function PaginaReunion() {
         candidatos={candidatos.filter((c) => !excluir.includes(c.id))}
         nombres={nombres}
         historial={historialVisible}
+        proximas={proximas}
         hoy={hoy}
         valor={valor}
         onChange={cambiar}
@@ -828,18 +860,19 @@ export default function PaginaReunion() {
               Lector
             </span>
             <BuscadorParticipante
-              candidatos={activos}
+              candidatos={hombresActivos}
               nombres={nombres}
               historial={historialVisible}
+              proximas={proximas}
               hoy={hoy}
               valor={parte.lector_id || null}
               onChange={(id) => asignarLector(parte, id)}
               ocupados={ocupados}
               placeholder="Buscar lector…"
-              vacioTexto="No hay participantes activos"
+              vacioTexto="No hay hombres activos"
             />
             <p className="mt-1 text-[11px] text-suave">
-              Lee en voz alta las citas del Estudio bíblico.
+              Lee en voz alta las citas del Estudio bíblico. Solo para hombres.
             </p>
           </div>
         )}
@@ -1371,6 +1404,7 @@ export default function PaginaReunion() {
                   candidatos={candidatosPorRol(rolPresidente.id)}
                   nombres={nombres}
                   historial={historialVisible}
+              proximas={proximas}
                   hoy={hoy}
                   valor={presidenteId}
                   onChange={(id) => elegirPresidente(id)}

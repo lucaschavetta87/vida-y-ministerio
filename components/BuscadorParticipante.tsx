@@ -21,24 +21,33 @@ const badgeGenero: Record<string, string> = {
 function DatoUltima({
   id,
   historial,
+  proximas,
   hoy,
   className,
 }: {
   id: string;
   historial?: Historial;
+  proximas?: Historial;
   hoy?: string;
   className?: string;
 }) {
   const ult = historial?.get(id);
+  const prox = proximas?.get(id);
+  const programado = prox ? ` · Próx. ${fechaCorta(prox.fecha)}` : "";
   if (!ult) {
     return (
-      <span className={cn("text-suave", className)}>Nunca participó</span>
+      <span className={cn("text-suave", className)}>
+        {prox
+          ? `Próx. ${fechaCorta(prox.fecha)} · ${prox.titulo}`
+          : "Nunca participó"}
+      </span>
     );
   }
   return (
     <span className={cn("text-suave", className)}>
       Últ. {fechaCorta(ult.fecha)}
       {hoy ? ` · ${antiguedadTexto(ult.fecha, hoy)}` : ""} · {ult.titulo}
+      {programado}
     </span>
   );
 }
@@ -47,6 +56,7 @@ export default function BuscadorParticipante({
   candidatos,
   nombres,
   historial,
+  proximas,
   hoy,
   multi = false,
   valor = null,
@@ -61,6 +71,8 @@ export default function BuscadorParticipante({
   candidatos: Participante[];
   nombres: Record<string, string>;
   historial?: Historial;
+  /** participaciones ya programadas en semanas que faltan */
+  proximas?: Historial;
   hoy?: string;
   multi?: boolean;
   valor?: string | null;
@@ -129,7 +141,7 @@ export default function BuscadorParticipante({
               {nombres[id] || "Participante"}
             </span>
             <span className="block text-[11px]">
-              <DatoUltima id={id} historial={historial} hoy={hoy} />
+              <DatoUltima id={id} historial={historial} proximas={proximas} hoy={hoy} />
             </span>
           </span>
           <button
@@ -215,7 +227,7 @@ export default function BuscadorParticipante({
                       </span>
                     )}
                     <span className="w-full text-[11px]">
-                      <DatoUltima id={p.id} historial={historial} hoy={hoy} />
+                      <DatoUltima id={p.id} historial={historial} proximas={proximas} hoy={hoy} />
                     </span>
                     {ocupados[p.id] && (
                       <span className="w-full text-[11px] text-teal">

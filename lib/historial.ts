@@ -69,10 +69,20 @@ export function antiguedadTexto(fechaISO: string, hoyISO: string): string {
   return anios <= 1 ? "hace 1 año" : `hace ${anios} años`;
 }
 
-/** Última participación de cada persona (semanas futuras no cuentan) */
-export async function traerHistorial(
-  hoyISO: string,
-): Promise<{ historial: Historial; error: string }> {
+export interface Historiales {
+  /** última participación que ya pasó */
+  historial: Historial;
+  /** próxima participación (semanas que todavía no llegaron) */
+  proximas: Historial;
+  error: string;
+}
+
+/**
+ * Última participación de cada persona, más la próxima que tiene
+ * programada. Los dos sirven para avisar en el buscador: "últ. …" y
+ * "próx. …" (para que no se repitan).
+ */
+export async function traerHistorial(hoyISO: string): Promise<Historiales> {
   const [r, p] = await Promise.all([
     supabase.from("reuniones").select("id, fecha_inicio"),
     supabase
@@ -84,7 +94,7 @@ export async function traerHistorial(
     r.error?.message || p.error?.message
       ? "No se pudo cargar el historial de participaciones."
       : "";
-  if (error) return { historial: new Map(), error };
+  if (error) return { historial: new Map(), proximas: new Map(), error };
 
   const fechas = new Map<string, string>(
     ((r.data as { id: string; fecha_inicio: string }[]) || []).map((x) => [
@@ -94,6 +104,7 @@ export async function traerHistorial(
   );
 
   const historial: Historial = new Map();
+  const proximas: Historial = new Map();
   for (const fila of (p.data as {
     reunion_id: string;
     seccion: string;
@@ -101,19 +112,21 @@ export async function traerHistorial(
     participante_ids: string[] | null;
   }[]) || []) {
     const fecha = fechas.get(fila.reunion_id);
-    if (!fecha || fecha > hoyISO) continue; // semana futura
+    if (!fecha) continue;
+    const futura = fecha > hoyISO;
+    const destino = futura ? proximas : historial;
+    const masCercana = futura ? "menor" : "mayor";
     for (const id of fila.participante_ids || []) {
-      const anterior = historial.get(id);
-      if (!anterior || fecha >= anterior.fecha) {
-        historial.set(id, {
-          fecha,
-          titulo: fila.titulo,
-          seccion: fila.seccion,
-        });
-      }
+      const anterior = destino.get(id);
+      const mejor =
+        !anterior ||
+        (masCercana === "mayor"
+          ? fecha >= anterior.fecha
+          : fecha <= anterior.fecha);
+      if (mejor) destino.set(id, { fecha, titulo: fila.titulo, seccion: fila.seccion });
     }
   }
-  return { historial, error };
+  return { historial, proximas, error };
 }
 
 /** más tiempo sin participar primero: nunca > más viejo > nombre */
