@@ -35,6 +35,9 @@ export default function PaginaUsuarios() {
   const [participantes, setParticipantes] = useState<Participante[]>([]);
   const [cargando, setCargando] = useState(true);
   const [editando, setEditando] = useState<Usuario | "nuevo" | null>(null);
+  const [generando, setGenerando] = useState(false);
+  const [credenciales, setCredenciales] = useState<{ nombre: string; clave: string }[] | null>(null);
+  const [resetClave, setResetClave] = useState<{ nombre: string; clave: string } | null>(null);
 
   const cargar = useCallback(
     () =>
@@ -76,6 +79,75 @@ export default function PaginaUsuarios() {
     await cargar();
   };
 
+  const resetearClave = async (u: Usuario) => {
+    if (!window.confirm(`¿Resetear la contraseña de "${u.nombre}"?`)) return;
+    const clave = String(Math.floor(1000 + Math.random() * 9000));
+    const hash = await hashearClave(clave);
+    await supabase.from("app_usuarios").update({ clave_hash: hash }).eq("id", u.id);
+    setResetClave({ nombre: u.nombre, clave });
+  };
+
+  const generarTodos = async () => {
+    if (!window.confirm("¿Generar usuarios para todos los participantes sin cuenta?")) return;
+    setGenerando(true);
+    const res = await fetch("/api/usuarios/generar", { method: "POST" });
+    const data = await res.json();
+    setGenerando(false);
+    if (!res.ok) {
+      alert(data.error || "No se pudo generar.");
+      return;
+    }
+    setCredenciales(data.generados || []);
+    await cargar();
+  };
+
+  const normalizarNombre = (texto: string) =>
+    texto
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\\u0300-\\u036f]/g, "")
+      .replace(/[^a-z0-9]/g, "");
+
+  const ultimos4 = (tel: string | null | undefined) => {
+    const digitos = (tel || "").replace(/\\D/g, "");
+    if (digitos.length < 4) return "0000";
+    return digitos.slice(-4);
+  };
+
+  const generarUsuariosPersonales = async () => {
+    if (!window.confirm("¿Generar usuarios para todos los participantes sin cuenta?")) return;
+    setGenerando(true);
+    const existentes = new Set(usuarios.map((u) => u.nombre.toLowerCase()));
+    const generados: { nombre: string; clave: string }[] = [];
+    for (const p of participantes) {
+      if (!p.activo) continue;
+      const yaTiene = usuarios.some((u) => u.participante_id === p.id);
+      if (yaTiene) continue;
+      let base = normalizarNombre(p.nombre_completo);
+      if (!base) continue;
+      let nombre = base;
+      let i = 2;
+      while (existentes.has(nombre)) {
+        nombre = `${base}${i}`;
+        i += 1;
+      }
+      const clave = ultimos4(p.telefono);
+      const hash = await hashearClave(clave);
+      const { error } = await supabase.from("app_usuarios").insert({
+        nombre,
+        participante_id: p.id,
+        clave_hash: hash,
+        activo: true,
+      });
+      if (error) continue;
+      existentes.add(nombre);
+      generados.push({ nombre, clave });
+    }
+    setGenerando(false);
+    setCredenciales(generados);
+    await cargar();
+  };
+
   if (cargando)
     return (
       <Panel className="flex items-center justify-center gap-2 p-10 text-sm text-suave">
@@ -93,9 +165,15 @@ export default function PaginaUsuarios() {
             puede entrar.
           </p>
         </div>
-        <Boton onClick={() => setEditando("nuevo")}>
-          <Plus size={16} /> Nuevo usuario
-        </Boton>
+        <div className="flex gap-2">
+          <Boton onClick={() => setEditando("nuevo")}>
+            <Plus size={16} /> Nuevo usuario
+          </Boton>
+          <Boton variante="secundario" onClick={generarTodos} disabled={generando}>
+            {generando ? <Loader2 size={16} className="animate-spin" /> : <KeyRound size={16} />}
+            Generar usuarios personales
+          </Boton>
+        </div>
       </div>
 
       <Panel className="overflow-x-auto">
@@ -153,6 +231,13 @@ export default function PaginaUsuarios() {
                       {u.activo ? "Desactivar" : "Activar"}
                     </button>
                     <button
+                      onClick={() => resetearClave(u)}
+                      className="cursor-pointer rounded-lg border border-linea p-2 text-suave transition-colors hover:border-suave hover:text-teal"
+                      title="Resetear contraseña"
+                    >
+                      <KeyRound size={14} />
+                    </button>
+                    <button
                       onClick={() => setEditando(u)}
                       className="cursor-pointer rounded-lg border border-linea p-2 text-suave transition-colors hover:border-suave hover:text-teal"
                       title="Editar"
@@ -173,6 +258,44 @@ export default function PaginaUsuarios() {
           </tbody>
         </table>
       </Panel>
+
+      {credenciales && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <Panel className="max-h-[80vh] w-full max-w-lg overflow-auto p-6">
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-lg font-bold">Usuarios generados</h2>
+              <button onClick={() => setCredenciales(null)} className="text-suave hover:text-teal">
+                <X size={18} />
+              </button>
+            </div>
+            <p className="mb-3 text-xs text-suave">
+              Guardá estas contraseñas ahora; no se pueden volver a ver.
+            </p>
+            <div className="space-y-2">
+              {credenciales.map((c) => (
+                <div key={c.nombre} className="flex items-center justify-between rounded-lg border border-linea bg-tarjeta2 px-3 py-2 text-sm">
+                  <span className="font-bold">{c.nombre}</span>
+                  <span className="font-mono">{c.clave}</span>
+                </div>
+              ))}
+            </div>
+          </Panel>
+        </div>
+      )}
+
+      {resetClave && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <Panel className="w-full max-w-sm p-6">
+            <h2 className="mb-2 text-lg font-bold">Nueva contraseña</h2>
+            <p className="mb-3 text-sm">
+              Usuario: <strong>{resetClave.nombre}</strong>
+            </p>
+            <p className="mb-3 font-mono text-2xl">{resetClave.clave}</p>
+            <p className="mb-4 text-xs text-suave">Guardála; no se puede volver a ver.</p>
+            <Boton onClick={() => setResetClave(null)}>Cerrar</Boton>
+          </Panel>
+        </div>
+      )}
 
       {editando && (
         <FormularioUsuario

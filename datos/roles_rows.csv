@@ -1,0 +1,26 @@
+id,nombre,slug,orden,generos_permitidos,activo,created_at
+0f83b209-9a77-45c5-a05e-47adffde5d2b,¿Qué diría?,que-diria,9,"[""HOMBRE""]",true,2026-09-29 18:17:36.190022+00
+0fc1fdaf-f522-44b4-a7ab-d903a88cc6b0,Oración Final,oracion_fin,16,"[""HOMBRE""]",true,2026-10-04 17:42:01.646991+00
+1f4b63f3-eb57-4f10-b040-545ebf852fae,Tesoros de la Biblia,tesoros,3,"[""HOMBRE""]",true,2026-09-29 18:17:36.190022+00
+301b49f8-42d6-4c8b-9912-e99148a2d9f3,Micrófonista 2,microfonista_2,14,"[""HOMBRE"",""NIÑO""]",true,2026-10-04 18:13:13.127604+00
+3c8bbdbe-9d11-4be3-bbf0-b86243abd59c,Discursos o temas de nuestra vida cristiana,discursos,10,"[""HOMBRE""]",true,2026-09-29 18:17:36.190022+00
+44176b80-f9a4-4595-94a6-42b797b0b7d0,Acomodador de Auditorio,acomodador_auditorio,12,"[""HOMBRE""]",true,2026-10-04 18:13:13.127604+00
+51a76679-26f4-4eb5-b93d-ceccd5635808,Primera conversación,conversacion,6,"[""HOMBRE"",""MUJER"",""NIÑO"",""NIÑA""]",true,2026-09-29 18:17:36.190022+00
+5e5d3866-17a7-4042-9e3c-6c2f8bd62706,Haga revisitas,revisitas,7,"[""HOMBRE"",""MUJER"",""NIÑO"",""NIÑA""]",true,2026-09-29 18:17:36.190022+00
+5eeba16e-37bb-4598-9c10-a3a4af6efe1e,Limpieza,limpieza,15,"[""HOMBRE""]",true,2026-10-04 17:42:01.646991+00
+60ce473e-b2db-4e66-a969-99f4c89dea32,Lectura de la Biblia,lectura,5,"[""HOMBRE"",""NIÑO""]",true,2026-09-29 18:17:36.190022+00
+734eb5f5-3a7b-43d9-9cf0-646d5b187479,Plataforma,plataforma,14,"[""HOMBRE""]",true,2026-10-04 17:42:01.646991+00
+7531b496-e994-4d97-9aa5-c688b3fb215b,Micrófonos,microfonos,12,"[""HOMBRE"",""NIÑO""]",true,2026-10-04 17:42:01.646991+00
+931f0b76-f639-43e9-9c80-e157609c811f,Retiro de Donaciones,retiro_donaciones,15,"[""HOMBRE""]",true,2026-10-04 18:13:13.127604+00
+9546e947-238d-4ade-b500-eeada4f3ecd4,Audio y Video,audio_video,13,"[""HOMBRE""]",true,2026-10-04 17:42:01.646991+00
+9562e205-7161-4501-867e-e8665606f635,Acomodador de Puerta,acomodador_puerta,11,"[""HOMBRE""]",true,2026-10-04 18:13:13.127604+00
+b4c974fe-3da8-4df2-beac-281e73ae8177,Acomodador,acomodador,11,"[""HOMBRE""]",true,2026-10-04 17:42:01.646991+00
+c44fb07c-3af7-45bc-b6e3-5f2d59d90e84,Perlas espirituales,perlas,4,"[""HOMBRE""]",true,2026-09-29 18:17:36.190022+00
+c8a39730-f15e-47ac-9065-4ed44e5ee126,Micrófonista 1,microfonista_1,13,"[""HOMBRE"",""NIÑO""]",true,2026-10-04 18:13:13.127604+00
+c9a71899-603f-4389-8baf-3732ccb209fe,Presidente (fin de semana),presidente,1,"[""HOMBRE""]",true,2026-09-29 18:17:36.190022+00
+ce857f56-23c4-43c5-9dd7-46797c359927,Haga discípulos,discipulos,8,"[""HOMBRE"",""MUJER"",""NIÑO"",""NIÑA""]",true,2026-10-05 00:16:48.39717+00
+cf097b76-2dc4-41ec-ad3c-994aebc4c27a,Oración,oracion,2,"[""HOMBRE""]",true,2026-09-29 18:17:36.190022+00
+d03c2551-4399-4df8-8a9f-197d687e83b7,Presidente (entre semana),presidente_entre_semana,1,"[""HOMBRE""]",true,2026-10-17 15:33:02.274445+00
+d53b8423-0337-499f-bc1b-1f40cfdecea7,Estudio bíblico de la congregación,estudio,11,"[""HOMBRE""]",true,2026-09-29 18:17:36.190022+00
+dc4372a0-a292-44ba-9137-bf0bcb57c7ce,Discursos de Seamos mejores maestros,discursos_seamos,11,"[""HOMBRE""]",true,2026-10-17 15:17:09.885517+00
+e34743a3-146d-4ff0-bc03-89c981b78b1d,Lector Estudio Bíblico,lector,11,"[""HOMBRE""]",true,2026-09-29 22:34:54.700549+00

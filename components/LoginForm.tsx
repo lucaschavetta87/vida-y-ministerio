@@ -27,7 +27,9 @@ export default function LoginForm() {
         setError(data.error || "No se pudo iniciar sesión");
         return;
       }
-      router.push("/");
+      const me = await fetch("/api/me").then((r) => r.json()).catch(() => ({}));
+      if (me?.participanteId) router.push("/mi-espacio");
+      else router.push("/");
       router.refresh();
     } catch {
       setError("Error de conexión");

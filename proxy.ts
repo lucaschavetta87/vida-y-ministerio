@@ -30,6 +30,8 @@ export const config = {
     "/asignaciones-mecanicas/:path*",
     "/servicio/:path*",
     "/secretaria/:path*",
+    "/mi-perfil/:path*",
+    "/mi-espacio/:path*",
     "/usuarios/:path*",
   ],
 };

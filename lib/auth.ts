@@ -127,6 +127,7 @@ export async function claveCorrecta(
 
 export interface Sesion {
   nombre: string;
+  participanteId: string | null;
   permisos: string[];
   /** true = la cuenta principal (entra a todo) */
   admin: boolean;
@@ -135,16 +136,17 @@ export interface Sesion {
 
 export async function firmarToken(
   nombre: string,
+  participanteId: string | null,
   permisos: string[],
   expira: number,
 ): Promise<string> {
-  const cuerpo = `${nombre}|${expira}|${permisos.join(",")}`;
+  const cuerpo = `${nombre}|${participanteId || ""}|${expira}|${permisos.join(",")}`;
   const firma = await crypto.subtle.sign(
     "HMAC",
     await claveHMAC(secreto()),
     new TextEncoder().encode(cuerpo),
   );
-  return [nombre, String(expira), aBase64(permisos.join(",")), aHex(firma)].join(".");
+  return [nombre, participanteId || "", String(expira), aBase64(permisos.join(",")), aHex(firma)].join(".");
 }
 
 /** Lee el token y lo verifica. Devuelve null si no corresponde. */
@@ -153,9 +155,9 @@ export async function leerToken(
 ): Promise<Sesion | null> {
   if (!token) return null;
   const partes = token.split(".");
-  if (partes.length !== 4) return null;
-  const [nombre, expira, permisosB64, firma] = partes;
-  const cuerpo = `${nombre}|${expira}|${atob(permisosB64)}`;
+  if (partes.length !== 5) return null;
+  const [nombre, participanteId, expira, permisosB64, firma] = partes;
+  const cuerpo = `${nombre}|${participanteId}|${expira}|${atob(permisosB64)}`;
   const esperada = await crypto.subtle.sign(
     "HMAC",
     await claveHMAC(secreto()),
@@ -166,7 +168,13 @@ export async function leerToken(
 
   const permisos = atob(permisosB64) ? atob(permisosB64).split(",").filter(Boolean) : [];
   const admin = nombre === usuarioEsperado();
-  return { nombre, permisos, admin, expira: Number(expira) };
+  return {
+    nombre,
+    participanteId: participanteId || null,
+    permisos,
+    admin,
+    expira: Number(expira),
+  };
 }
 
 export async function tokenValido(token: string | undefined | null): Promise<boolean> {
@@ -180,6 +188,12 @@ export function puedeEntrar(
 ): boolean {
   if (!sesion) return false;
   if (sesion.admin) return true;
+  // usuario personal (asignado a un participante): entra a todo
+  // excepto la administración de usuarios
+  if (sesion.participanteId) {
+    if (ruta.startsWith("/usuarios")) return false;
+    return true;
+  }
   if (ruta.startsWith("/usuarios")) return false; // solo la cuenta principal
   const base = "/" + ruta.split("/").filter(Boolean)[0];
   const permiso = PERMISO_DE_RUTA[base];

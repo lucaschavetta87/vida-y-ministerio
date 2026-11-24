@@ -150,6 +150,7 @@ export default function PaginaReunion() {
   const reunionDeUrl = parametros.get("reunion");
   const [reuniones, setReuniones] = useState<Reunion[]>([]);
   const [reunionId, setReunionId] = useState<string | null>(null);
+  const [paginaReuniones, setPaginaReuniones] = useState(1);
   const [registroPartes, setRegistroPartes] = useState<{
     reunionId: string | null;
     partes: ReunionParte[];
@@ -1073,27 +1074,70 @@ export default function PaginaReunion() {
             Todavía no hay reuniones creadas.
           </Panel>
         ) : (
-          <div className="flex flex-col gap-2">
-            {reuniones.map((r) => (
-              <button
-                key={r.id}
-                onClick={() => {
-                  setReunionId(r.id);
-                  router.replace(`/reunion?reunion=${r.id}`);
-                }}
-                className="flex cursor-pointer items-center justify-between gap-3 rounded-xl border border-linea bg-tarjeta px-4 py-3 text-left transition-colors hover:border-teal"
-              >
-                <span>
-                  <span className="block text-sm font-bold">{r.titulo}</span>
-                  <span className="block text-xs text-suave">
-                    {fechaLarga(r.fecha_inicio)} → {fechaLarga(r.fecha_fin)}
-                    {r.cita_biblica ? ` · ${r.cita_biblica}` : ""}
-                  </span>
+          <>
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              {reuniones
+                .slice((paginaReuniones - 1) * 4, paginaReuniones * 4)
+                .map((r) => (
+                  <div
+                    key={r.id}
+                    className="group relative cursor-pointer overflow-hidden rounded-xl border border-linea bg-tarjeta transition hover:shadow-lg"
+                    onClick={() => {
+                      setReunionId(r.id);
+                      router.replace(`/reunion?reunion=${r.id}`);
+                    }}
+                  >
+                    <div className="relative aspect-[4/3] overflow-hidden border-b border-linea bg-gray-100">
+                      <iframe
+                        src={`/reunion/pdf/${r.id}`}
+                        className="pointer-events-none absolute left-0 top-0 h-[400%] w-[400%] origin-top-left scale-[0.25]"
+                        title="preview"
+                      />
+                      <a
+                        href={`/reunion/pdf/${r.id}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        onClick={(e) => e.stopPropagation()}
+                        className="absolute bottom-2 right-2 flex items-center gap-1 rounded-md bg-teal px-2 py-1 text-xs font-bold text-white shadow"
+                      >
+                        <FileDown size={12} /> Ver PDF
+                      </a>
+                    </div>
+                    <div className="p-3">
+                      <p className="text-sm font-bold">{r.titulo}</p>
+                      <p className="text-xs text-suave">
+                        {fechaLarga(r.fecha_inicio)} → {fechaLarga(r.fecha_fin)}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+            </div>
+            {Math.ceil(reuniones.length / 4) > 1 && (
+              <div className="mt-6 flex items-center justify-center gap-2">
+                <Boton
+                  variante="secundario"
+                  onClick={() => setPaginaReuniones((p) => Math.max(1, p - 1))}
+                  disabled={paginaReuniones === 1}
+                >
+                  Anterior
+                </Boton>
+                <span className="text-sm">
+                  {paginaReuniones} / {Math.ceil(reuniones.length / 4)}
                 </span>
-                <CalendarDays size={16} className="text-suave" />
-              </button>
-            ))}
-          </div>
+                <Boton
+                  variante="secundario"
+                  onClick={() =>
+                    setPaginaReuniones((p) =>
+                      Math.min(Math.ceil(reuniones.length / 4), p + 1),
+                    )
+                  }
+                  disabled={paginaReuniones === Math.ceil(reuniones.length / 4)}
+                >
+                  Siguiente
+                </Boton>
+              </div>
+            )}
+          </>
         )}
       </div>
     );

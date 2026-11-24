@@ -172,8 +172,15 @@ function Grilla({ columnas }: { columnas: Columna[] }) {
   );
 }
 
-export default function PdfAsignacionesMecanicas() {
-  const { reunionId } = useParams<{ reunionId: string }>();
+export default function PdfAsignacionesMecanicas({
+  reunionId: reunionIdProp,
+  soloLectura = false,
+}: {
+  reunionId?: string;
+  soloLectura?: boolean;
+} = {}) {
+  const params = useParams<{ reunionId: string }>();
+  const reunionId = reunionIdProp || params.reunionId;
   const [reunion, setReunion] = useState<Reunion | null>(null);
   const [ram, setRam] = useState<RAM | null>(null);
   const [participantes, setParticipantes] = useState<Participante[]>([]);
@@ -292,20 +299,22 @@ export default function PdfAsignacionesMecanicas() {
 
   return (
     <div className="pagina-pdf mx-auto w-full max-w-[1000px] font-serif">
-      <div className="no-print mb-6 flex flex-wrap items-center justify-between gap-3 font-sans">
-        <Link
-          href="/asignaciones-mecanicas"
-          className="flex items-center gap-1 text-sm text-suave hover:text-teal"
-        >
-          <ChevronLeft size={15} /> Volver
-        </Link>
-        <button
-          onClick={() => window.print()}
-          className="flex cursor-pointer items-center gap-1.5 rounded-lg bg-teal px-4 py-2 text-sm font-bold text-white"
-        >
-          <Printer size={15} /> Guardar como PDF
-        </button>
-      </div>
+      {!soloLectura && (
+        <div className="no-print mb-6 flex flex-wrap items-center justify-between gap-3 font-sans">
+          <Link
+            href="/asignaciones-mecanicas"
+            className="flex items-center gap-1 text-sm text-suave hover:text-teal"
+          >
+            <ChevronLeft size={15} /> Volver
+          </Link>
+          <button
+            onClick={() => window.print()}
+            className="flex cursor-pointer items-center gap-1.5 rounded-lg bg-teal px-4 py-2 text-sm font-bold text-white"
+          >
+            <Printer size={15} /> Guardar como PDF
+          </button>
+        </div>
+      )}
 
       {/* -------- entre semana -------- */}
       <section className="break-inside-avoid">

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertTriangle,
   CalendarRange,
@@ -33,6 +33,7 @@ import {
   type Territorio,
 } from "@/lib/territorios";
 import type { Participante } from "@/lib/tipos";
+import { etiquetaMes, mesActual } from "@/lib/informes";
 
 type Pestana = "territorio" | "salidas" | "personales";
 
@@ -50,6 +51,9 @@ export default function PaginaServicio() {
   const [viendo, setViendo] = useState<Territorio | null>(null);
   /** número de territorio → publicador que lo tiene asignado */
   const [personales, setPersonales] = useState<Record<number, string>>({});
+  const [archivoSalida, setArchivoSalida] = useState<{ archivo_url: string } | null>(null);
+  const archivoRef = useRef<HTMLInputElement>(null);
+  const [esConductor, setEsConductor] = useState(false);
 
   /* ---------- datos ---------- */
 
@@ -61,6 +65,12 @@ export default function PaginaServicio() {
     if (error) setAviso("No se pudieron leer los territorios. Pegá migracion_v10.sql.");
     setTerritorios((data as Territorio[]) || []);
   }, []);
+
+  const cargarArchivo = useCallback(async () => {
+    const res = await fetch(`/api/salidas/archivo?clave=${encodeURIComponent(mes)}`);
+    const data = await res.json();
+    setArchivoSalida(data?.archivo || null);
+  }, [mes]);
 
   const cargarSalidas = useCallback(async () => {
     const { data: cabeceras } = await supabase
@@ -114,12 +124,34 @@ export default function PaginaServicio() {
   }, [cargarTerritorios, cargarSalidas]);
 
   useEffect(() => {
+    fetch("/api/me")
+      .then((r) => r.json())
+      .then(async (data) => {
+        const pid = data?.participanteId;
+        if (!pid) return;
+        const { data: roles } = await supabase
+          .from("participante_roles")
+          .select("role_id")
+          .eq("participante_id", pid);
+        const ids = (roles || []).map((r: any) => r.role_id);
+        if (!ids.length) return;
+        const { data: rolesInfo } = await supabase
+          .from("roles")
+          .select("id, slug, nombre")
+          .in("id", ids);
+        const slugs = (rolesInfo || []).map((r: any) => String(r.slug || r.nombre).toLowerCase());
+        setEsConductor(slugs.some((s) => s.includes("conductor") || s.includes("salida")));
+      });
+  }, []);
+
+  useEffect(() => {
     Promise.all([
       cargarTerritorios(),
       cargarSalidas(),
+      cargarArchivo(),
       supabase.from("participantes").select("*"),
       supabase.from("territorios_personales").select("publicador_id, territorio_numero"),
-    ]).then(([, , p, pe]) => {
+    ]).then(([, , , p, pe]) => {
       const personas = (p.data as Participante[]) || [];
       setParticipantes(personas);
       const mapa: Record<number, string> = {};
@@ -179,6 +211,26 @@ export default function PaginaServicio() {
     if (!window.confirm("¿Borrar esta salida de territorio?")) return;
     await supabase.from("territorios_salidas").delete().eq("id", id);
     await cargarSalidas();
+  };
+
+  const subirArchivoSalida = async (file: File) => {
+    const form = new FormData();
+    form.append("archivo", file);
+    form.append("clave", mes);
+    const res = await fetch("/api/salidas/archivo", { method: "POST", body: form });
+    const text = await res.text();
+    let data: any = {};
+    try {
+      data = text ? JSON.parse(text) : {};
+    } catch {
+      data = { error: text || "Respuesta inválida del servidor." };
+    }
+    if (!res.ok) {
+      setAviso(data.error || "No se pudo subir el archivo.");
+      return;
+    }
+    await cargarArchivo();
+    setAviso("Archivo subido.");
   };
 
   const guardarObservaciones = async (
@@ -466,6 +518,34 @@ export default function PaginaServicio() {
     <div>
       <Titulo>Servicio</Titulo>
       {tabs}
+      <Panel className="mb-4 p-4">
+        {aviso && (
+          <p className="mb-3 rounded-xl border border-teal/40 bg-teal/10 px-3 py-2 text-sm text-teal">
+            {aviso}
+          </p>
+        )}
+        <div className="flex flex-wrap items-center gap-3">
+          <Boton variante="secundario" onClick={() => archivoRef.current?.click()}>
+            Subir salida (PDF/JPG)
+          </Boton>
+              {esConductor && (
+            <Boton variante="secundario" onClick={() => (window.location.href = "/territorios")}>
+              Registrar salida de territorio
+            </Boton>
+          )}
+          <input
+            ref={archivoRef}
+            type="file"
+            accept="application/pdf,image/jpeg,image/jpg,image/png"
+            className="hidden"
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) void subirArchivoSalida(f);
+            }}
+          />
+        </div>
+      </Panel>
+
       <FormularioSalidas
         participantes={participantes}
         territorios={territorios}

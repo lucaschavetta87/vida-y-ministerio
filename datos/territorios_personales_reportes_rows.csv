@@ -1,0 +1,4 @@
+id,publicador_id,territorio_numero,fecha,estado,manzanas,observaciones,creado_en,actualizado_en
+6ab4afaf-b1d1-4a56-831e-fc6636580dbc,45f9e7a8-e1ad-45a4-8188-371f0d9d118b,25,2026-10-14,COMPLETADO,[],,2026-10-15 00:45:23.98+00,2026-10-15 00:45:23.98+00
+e48cee2c-bb79-4964-a5c6-ee6404615bc6,45f9e7a8-e1ad-45a4-8188-371f0d9d118b,25,2026-10-15,INCOMPLETO,"[""A"",""B"",""C""]",,2026-10-15 11:40:47.173+00,2026-10-15 11:40:47.173+00
+fd9db27d-2775-4723-80b5-bd518518d23e,45f9e7a8-e1ad-45a4-8188-371f0d9d118b,25,2026-10-14,INCOMPLETO,"[""B"",""C"",""D"",""E"",""F""]",llovio,2026-10-14 17:27:21.593+00,2026-10-14 17:27:21.593+00

@@ -194,6 +194,7 @@ export async function POST(req: NextRequest) {
         notas: cuerpo.notas?.trim() || null,
         creado_en: ahora,
         actualizado_en: ahora,
+        registrado_por: (cuerpo as { subido_por?: string }).subido_por || participanteId,
       })
       .select("id")
       .single();

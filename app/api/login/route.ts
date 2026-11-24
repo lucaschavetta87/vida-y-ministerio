@@ -31,12 +31,12 @@ export async function POST(request: Request) {
 
   if (await credencialesCorrectas(usuario, password)) {
     // la cuenta principal entra a todo
-    token = await firmarToken(usuario, [], expira);
+    token = await firmarToken(usuario, null, [], expira);
   } else {
     // los usuarios delegados: se busca por nombre
     const { data, error } = await supabase
       .from("app_usuarios")
-      .select("id, nombre, clave_hash, activo")
+      .select("id, nombre, clave_hash, activo, participante_id")
       .ilike("nombre", usuario)
       .maybeSingle();
 
@@ -45,7 +45,7 @@ export async function POST(request: Request) {
     }
 
     const fila = data as
-      | { id: string; nombre: string; clave_hash: string; activo: boolean }
+      | { id: string; nombre: string; clave_hash: string; activo: boolean; participante_id: string | null }
       | null;
 
     if (
@@ -66,6 +66,7 @@ export async function POST(request: Request) {
 
     token = await firmarToken(
       fila.nombre,
+      fila.participante_id,
       ((permisos || []) as { permiso: string }[]).map((p) => p.permiso),
       expira,
     );

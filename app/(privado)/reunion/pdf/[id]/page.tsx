@@ -60,8 +60,15 @@ const SECCION_ESTILO: Record<
 
 const SECCIONES_PDF = Object.keys(SECCION_ESTILO);
 
-export default function PaginaPdfReunion() {
-  const { id } = useParams<{ id: string }>();
+export default function PaginaPdfReunion({
+  reunionId: reunionIdProp,
+  soloLectura = false,
+}: {
+  reunionId?: string;
+  soloLectura?: boolean;
+} = {}) {
+  const params = useParams<{ id: string }>();
+  const id = reunionIdProp || params.id;
   const [reunion, setReunion] = useState<Reunion | null>(null);
   const [partes, setPartes] = useState<ReunionParte[]>([]);
   const [participantes, setParticipantes] = useState<Participante[]>([]);
@@ -253,20 +260,22 @@ export default function PaginaPdfReunion() {
 
   return (
     <div className="pagina-pdf mx-auto max-w-4xl">
-      <div className="no-print mb-6 flex flex-wrap items-center justify-between gap-3">
-        <Link
-          href="/reunion"
-          className="flex items-center gap-1 text-sm font-semibold text-suave transition-colors hover:text-teal"
-        >
-          <ChevronLeft size={15} /> Volver a Vida y Ministerio
-        </Link>
-        <button
-          onClick={() => window.print()}
-          className="flex cursor-pointer items-center gap-1.5 rounded-lg bg-teal px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-teal2"
-        >
-          <Printer size={15} /> Guardar como PDF
-        </button>
-      </div>
+      {!soloLectura && (
+        <div className="no-print mb-6 flex flex-wrap items-center justify-between gap-3">
+          <Link
+            href="/reunion"
+            className="flex items-center gap-1 text-sm font-semibold text-suave transition-colors hover:text-teal"
+          >
+            <ChevronLeft size={15} /> Volver a Vida y Ministerio
+          </Link>
+          <button
+            onClick={() => window.print()}
+            className="flex cursor-pointer items-center gap-1.5 rounded-lg bg-teal px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-teal2"
+          >
+            <Printer size={15} /> Guardar como PDF
+          </button>
+        </div>
+      )}
 
       {/* -------- encabezado -------- */}
       <header className="mb-3 border-b-2 border-texto pb-2">
