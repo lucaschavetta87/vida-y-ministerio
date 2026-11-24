@@ -82,11 +82,13 @@ export default function NavLateral({ sesion }: { sesion: Sesion | null }) {
   const items = sesion
     ? enlaces
         .filter(({ href, permiso }) => {
+          if (sesion.admin) return true;
+          // usuarios personales: respetar permisos asignados
           if (sesion.participanteId) {
             if (href === "/mi-espacio") return true;
             return sesion.permisos.includes(permiso);
           }
-          return sesion.admin ? true : sesion.permisos.includes(permiso);
+          return sesion.permisos.includes(permiso);
         })
         .map(({ href, texto, Icono }) => {
         const activa = ruta === href || ruta.startsWith(`${href}/`);

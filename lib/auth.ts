@@ -187,15 +187,16 @@ export function puedeEntrar(
   ruta: string,
 ): boolean {
   if (!sesion) return false;
-  if (sesion.admin) return true;
-  // usuario personal (asignado a un participante): entra a todo
-  // excepto la administración de usuarios
-  if (sesion.participanteId) {
-    if (ruta.startsWith("/usuarios")) return false;
-    return true;
-  }
-  if (ruta.startsWith("/usuarios")) return false; // solo la cuenta principal
   const base = "/" + ruta.split("/").filter(Boolean)[0];
+  if (sesion.admin) return true;
+  if (ruta.startsWith("/usuarios")) return false; // solo la cuenta principal
+  // usuarios personales: respetar permisos asignados
+  if (sesion.participanteId) {
+    const permiso = PERMISO_DE_RUTA[base];
+    // rutas sin permiso definido (como /mi-espacio) permiten entrada
+    if (!permiso) return true;
+    return sesion.permisos.includes(permiso);
+  }
   const permiso = PERMISO_DE_RUTA[base];
   if (!permiso) return true;
   return sesion.permisos.includes(permiso);

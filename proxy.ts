@@ -15,7 +15,7 @@ export default async function proxy(request: NextRequest) {
   // si no tiene permiso para esa parte, vuelve al inicio
   if (!puedeEntrar(sesion, request.nextUrl.pathname)) {
     const url = request.nextUrl.clone();
-    url.pathname = "/";
+    url.pathname = sesion.participanteId ? "/mi-espacio" : "/";
     url.search = "?sin=permiso";
     return NextResponse.redirect(url);
   }
