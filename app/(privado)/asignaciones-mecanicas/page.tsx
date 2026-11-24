@@ -13,6 +13,7 @@ import {
   type ReunionParte,
 } from "@/lib/tipos";
 import { hoyISO, traerHistorial, type Historial } from "@/lib/historial";
+import { Trash2, Plus, ChevronLeft, Eye } from "lucide-react";
 
 interface RAM {
   id?: string;
@@ -51,32 +52,7 @@ interface RAM {
   notas: string | null;
 }
 
-/** nombre de cada tarea mecánica (para avisar si alguien repite) */
-const TAREAS: [keyof RAM, string][] = [
-  ["acomodador_puerta_id", "Acomodador de puerta (entre semana)"],
-  ["acomodador_auditorio_id", "Acomodador de auditorio (entre semana)"],
-  ["microfonista_1_id", "Micrófonista 1 (entre semana)"],
-  ["microfonista_2_id", "Micrófonista 2 (entre semana)"],
-  ["audio_id", "Audio (entre semana)"],
-  ["video_id", "Video (entre semana)"],
-  ["plataforma_id", "Plataforma (entre semana)"],
-  ["retiro_donaciones_1_id", "Retiro de donaciones 1 (entre semana)"],
-  ["retiro_donaciones_2_id", "Retiro de donaciones 2 (entre semana)"],
-  ["presidente_fin_semana_id", "Presidente (fin de semana)"],
-  ["oracion_asignaciones_id", "Oración de asignaciones"],
-  ["conductor_atalaya_id", "Conductor de Atalaya"],
-  ["lector_id", "Lector (Atalaya)"],
-  ["acomodador_puerta_fs_id", "Acomodador de puerta (fin de semana)"],
-  ["acomodador_auditorio_fs_id", "Acomodador de auditorio (fin de semana)"],
-  ["microfonista_1_fs_id", "Micrófonista 1 (fin de semana)"],
-  ["microfonista_2_fs_id", "Micrófonista 2 (fin de semana)"],
-  ["audio_fs_id", "Audio (fin de semana)"],
-  ["video_fs_id", "Video (fin de semana)"],
-  ["plataforma_fs_id", "Plataforma (fin de semana)"],
-  ["retiro_donaciones_1_fs_id", "Retiro de donaciones 1 (fin de semana)"],
-  ["retiro_donaciones_2_fs_id", "Retiro de donaciones 2 (fin de semana)"],
-  ["oracion_final_id", "Oración final"],
-];
+const POR_PAGINA = 4;
 
 function ramVacio(reunionId: string): RAM {
   return {
@@ -138,20 +114,79 @@ async function traerBase(): Promise<DatosBase> {
   };
 }
 
+const TAREAS: [keyof RAM, string][] = [
+  ["acomodador_puerta_id", "Acomodador de puerta (entre semana)"],
+  ["acomodador_auditorio_id", "Acomodador de auditorio (entre semana)"],
+  ["microfonista_1_id", "Micrófonista 1 (entre semana)"],
+  ["microfonista_2_id", "Micrófonista 2 (entre semana)"],
+  ["audio_id", "Audio (entre semana)"],
+  ["video_id", "Video (entre semana)"],
+  ["plataforma_id", "Plataforma (entre semana)"],
+  ["retiro_donaciones_1_id", "Retiro de donaciones 1 (entre semana)"],
+  ["retiro_donaciones_2_id", "Retiro de donaciones 2 (entre semana)"],
+  ["presidente_fin_semana_id", "Presidente (fin de semana)"],
+  ["oracion_asignaciones_id", "Oración de asignaciones"],
+  ["conductor_atalaya_id", "Conductor de Atalaya"],
+  ["lector_id", "Lector (Atalaya)"],
+  ["acomodador_puerta_fs_id", "Acomodador de puerta (fin de semana)"],
+  ["acomodador_auditorio_fs_id", "Acomodador de auditorio (fin de semana)"],
+  ["microfonista_1_fs_id", "Micrófonista 1 (fin de semana)"],
+  ["microfonista_2_fs_id", "Micrófonista 2 (fin de semana)"],
+  ["audio_fs_id", "Audio (fin de semana)"],
+  ["video_fs_id", "Video (fin de semana)"],
+  ["plataforma_fs_id", "Plataforma (fin de semana)"],
+  ["retiro_donaciones_1_fs_id", "Retiro de donaciones 1 (fin de semana)"],
+  ["retiro_donaciones_2_fs_id", "Retiro de donaciones 2 (fin de semana)"],
+  ["oracion_final_id", "Oración final"],
+];
+
+const COPIAR_A_FIN_DE_SEMANA: [keyof RAM, keyof RAM][] = [
+  ["acomodador_puerta_id", "acomodador_puerta_fs_id"],
+  ["acomodador_auditorio_id", "acomodador_auditorio_fs_id"],
+  ["microfonista_1_id", "microfonista_1_fs_id"],
+  ["microfonista_2_id", "microfonista_2_fs_id"],
+  ["audio_id", "audio_fs_id"],
+  ["video_id", "video_fs_id"],
+  ["plataforma_id", "plataforma_fs_id"],
+  ["retiro_donaciones_1_id", "retiro_donaciones_1_fs_id"],
+  ["retiro_donaciones_2_id", "retiro_donaciones_2_fs_id"],
+  ["limpieza_grupo_entresemana", "limpieza_grupo_fin_semana"],
+];
+
 export default function AsignacionesMecanicasPage() {
   const router = useRouter();
+  const [vista, setVista] = useState<"lista" | "editor">("lista");
   const [reuniones, setReuniones] = useState<Reunion[]>([]);
-  const [reunionId, setReunionId] = useState<string>("");
   const [participantes, setParticipantes] = useState<Participante[]>([]);
   const [participanteRoles, setParticipanteRoles] = useState<Asignacion[]>([]);
   const [roles, setRoles] = useState<{ id: string; slug: string }[]>([]);
+  const [rams, setRams] = useState<RAM[]>([]);
+  const [reunionId, setReunionId] = useState<string>("");
   const [ram, setRam] = useState<RAM | null>(null);
   const [cargando, setCargando] = useState(true);
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState("");
   const [partes, setPartes] = useState<ReunionParte[]>([]);
   const [historial, setHistorial] = useState<Historial>(new Map());
+  const [pagina, setPagina] = useState(1);
   const hoy = hoyISO();
+  const [modalCrear, setModalCrear] = useState(false);
+
+  useEffect(() => {
+    if (cargando) return;
+    let cancelado = false;
+    traerHistorial(hoy).then(({ historial: h }) => {
+      if (!cancelado) setHistorial(h);
+    });
+    return () => {
+      cancelado = true;
+    };
+  }, [cargando, hoy]);
+
+  const traerRams = useCallback(async () => {
+    const { data } = await supabase.from("reunion_asignaciones_mecanicas").select("*");
+    setRams((data as RAM[]) || []);
+  }, []);
 
   useEffect(() => {
     let cancelado = false;
@@ -161,13 +196,13 @@ export default function AsignacionesMecanicasPage() {
       setParticipantes(datos.participantes);
       setParticipanteRoles(datos.participanteRoles);
       setRoles(datos.roles);
-      if (datos.reuniones[0]) setReunionId(datos.reuniones[0].id);
       setCargando(false);
+      traerRams();
     });
     return () => {
       cancelado = true;
     };
-  }, []);
+  }, [traerRams]);
 
   useEffect(() => {
     if (!reunionId) return;
@@ -179,11 +214,15 @@ export default function AsignacionesMecanicasPage() {
       .maybeSingle()
       .then(({ data }) => {
         if (cancelado) return;
-        if (data) {
-          setRam(data as RAM);
-        } else {
-          setRam({ ...ramVacio(reunionId) });
-        }
+        if (data) setRam(data as RAM);
+        else setRam({ ...ramVacio(reunionId) });
+      });
+    supabase
+      .from("reunion_partes")
+      .select("id, titulo, seccion, participante_ids")
+      .eq("reunion_id", reunionId)
+      .then(({ data }) => {
+        if (!cancelado) setPartes((data as ReunionParte[]) || []);
       });
     return () => {
       cancelado = true;
@@ -198,7 +237,6 @@ export default function AsignacionesMecanicasPage() {
     [participantes],
   );
 
-  /** Los micros también los pueden pasar los niños (varones). */
   const paraMicrofonos = useMemo(
     () =>
       participantes.filter(
@@ -221,6 +259,7 @@ export default function AsignacionesMecanicasPage() {
     () => hombres.filter((p) => tieneClasificacion(p, "ANCIANO")),
     [hombres],
   );
+
   const idsRol = useCallback(
     (slug: string): Set<string> => {
       const rol = roles.find((r) => r.slug === slug);
@@ -232,62 +271,20 @@ export default function AsignacionesMecanicasPage() {
     [roles, participanteRoles],
   );
 
-  /**
-   * Solo se pueden elegir los que tienen ese rol tildado en la ficha del
-   * participante (o el permiso especial de la tarea).
-   */
   const aptos = useCallback(
-    (
-      slug: string,
-      permiso?: (p: Participante) => boolean,
-      base: Participante[] = hombres,
-    ) => {
+    (slug: string, permiso?: (p: Participante) => boolean, base: Participante[] = hombres) => {
       const conRol = idsRol(slug);
-      return base.filter(
-        (p) => conRol.has(p.id) || (permiso ? permiso(p) : false),
-      );
+      return base.filter((p) => conRol.has(p.id) || (permiso ? permiso(p) : false));
     },
     [hombres, idsRol],
   );
 
-  /* ---------- temas de la reunión e historial ---------- */
-
-  useEffect(() => {
-    if (!reunionId) return;
-    let cancelado = false;
-    supabase
-      .from("reunion_partes")
-      .select("id, titulo, seccion, participante_ids")
-      .eq("reunion_id", reunionId)
-      .then(({ data }) => {
-        if (!cancelado) setPartes((data as ReunionParte[]) || []);
-      });
-    return () => {
-      cancelado = true;
-    };
-  }, [reunionId]);
-
-  useEffect(() => {
-    if (cargando) return;
-    let cancelado = false;
-    traerHistorial(hoy).then(({ historial: h }) => {
-      if (!cancelado) setHistorial(h);
-    });
-    return () => {
-      cancelado = true;
-    };
-  }, [cargando, hoy]);
-
-  /** temas de la reunión donde esa persona ya tiene algo asignado */
   const temasDe = useCallback(
     (id: string): string[] =>
-      partes
-        .filter((p) => (p.participante_ids || []).includes(id))
-        .map((p) => p.titulo),
+      partes.filter((p) => (p.participante_ids || []).includes(id)).map((p) => p.titulo),
     [partes],
   );
 
-  /** otras tareas (de esta misma pantalla) que ya tiene asignadas */
   const tareasPorPersona = useMemo(() => {
     const mapa = new Map<string, { campo: string; etiqueta: string }[]>();
     if (!ram) return mapa;
@@ -301,12 +298,9 @@ export default function AsignacionesMecanicasPage() {
     return mapa;
   }, [ram]);
 
-  /** avisos de la persona para la tarea que se está editando */
   const avisosDe = useCallback(
     (campo: keyof RAM) => (id: string): string[] =>
-      (tareasPorPersona.get(id) || [])
-        .filter((t) => t.campo !== campo)
-        .map((t) => t.etiqueta),
+      (tareasPorPersona.get(id) || []).filter((t) => t.campo !== campo).map((t) => t.etiqueta),
     [tareasPorPersona],
   );
 
@@ -340,26 +334,9 @@ export default function AsignacionesMecanicasPage() {
   const aptosOracion = useMemo(() => aptos("oracion"), [aptos]);
   const aptosOracionFinal = useMemo(() => aptos("oracion_fin"), [aptos]);
 
-  /* ---------- lo de entre semana se repite en fin de semana ---------- */
-
-  const COPIAR_A_FIN_DE_SEMANA: [keyof RAM, keyof RAM][] = [
-    ["acomodador_puerta_id", "acomodador_puerta_fs_id"],
-    ["acomodador_auditorio_id", "acomodador_auditorio_fs_id"],
-    ["microfonista_1_id", "microfonista_1_fs_id"],
-    ["microfonista_2_id", "microfonista_2_fs_id"],
-    ["audio_id", "audio_fs_id"],
-    ["video_id", "video_fs_id"],
-    ["plataforma_id", "plataforma_fs_id"],
-    ["retiro_donaciones_1_id", "retiro_donaciones_1_fs_id"],
-    ["retiro_donaciones_2_id", "retiro_donaciones_2_fs_id"],
-    ["limpieza_grupo_entresemana", "limpieza_grupo_fin_semana"],
-  ];
-
-  /** queda algo de entre semana para copiar? */
   const hayParaCopiar = useMemo(() => {
     if (!ram) return false;
     return COPIAR_A_FIN_DE_SEMANA.some(([origen]) => Boolean(ram[origen]));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ram]);
 
   const copiarAFinDeSemana = () => {
@@ -374,13 +351,10 @@ export default function AsignacionesMecanicasPage() {
   const guardar = async () => {
     if (!ram || !reunionId) return;
     setGuardando(true);
-    // las columnas viejas "audio y video" ya no se usan: no se mandan
     const campos: Record<string, unknown> = { ...ram };
     delete campos.audio_video_id;
     delete campos.audio_video_fs_id;
-    const { error } = await supabase
-      .from("reunion_asignaciones_mecanicas")
-      .upsert(campos);
+    const { error } = await supabase.from("reunion_asignaciones_mecanicas").upsert(campos);
     setGuardando(false);
     if (error) {
       setError(
@@ -390,7 +364,10 @@ export default function AsignacionesMecanicasPage() {
           ? "Falta la migración: pegá supabase/migracion_v5.sql en el SQL Editor de Supabase."
           : error.message,
       );
-    } else setError("");
+    } else {
+      setError("");
+      traerRams();
+    }
   };
 
   const irPdf = () => {
@@ -398,28 +375,200 @@ export default function AsignacionesMecanicasPage() {
     router.push(`/asignaciones-mecanicas/pdf/${reunionId}`);
   };
 
+  const abrirEditor = async (id: string) => {
+    setReunionId(id);
+    const { data } = await supabase
+      .from("reunion_asignaciones_mecanicas")
+      .select("*")
+      .eq("reunion_id", id)
+      .maybeSingle();
+    setRam((data as RAM) || { ...ramVacio(id) });
+    setVista("editor");
+  };
+
+  const borrarRam = async (id: string) => {
+    if (!confirm("¿Borrar esta asignación mecánica?")) return;
+    await supabase.from("reunion_asignaciones_mecanicas").delete().eq("reunion_id", id);
+    setRams((prev) => prev.filter((r) => r.reunion_id !== id));
+  };
+
+  const crearRam = async (id: string) => {
+    const vacio = ramVacio(id);
+    const { data, error } = await supabase
+      .from("reunion_asignaciones_mecanicas")
+      .upsert(vacio)
+      .select()
+      .single();
+    if (error) {
+      setError(error.message);
+      return;
+    }
+    setRams((prev) => [...prev, (data as RAM) || vacio]);
+    setModalCrear(false);
+    abrirEditor(id);
+  };
+
+  const reunionesConRam = useMemo(() => {
+    return rams
+      .map((r) => {
+        const reunion = reuniones.find((x) => x.id === r.reunion_id);
+        return reunion ? { ram: r, reunion } : null;
+      })
+      .filter(Boolean) as { ram: RAM; reunion: Reunion }[];
+  }, [rams, reuniones]);
+
+  const ordenadas = useMemo(() => {
+    return [...reunionesConRam].sort(
+      (a, b) => new Date(b.reunion.fecha_inicio).getTime() - new Date(a.reunion.fecha_inicio).getTime(),
+    );
+  }, [reunionesConRam]);
+
+  const totalPaginas = Math.max(1, Math.ceil(ordenadas.length / POR_PAGINA));
+  const paginaActual = Math.min(pagina, totalPaginas);
+  const itemsPagina = ordenadas.slice(
+    (paginaActual - 1) * POR_PAGINA,
+    paginaActual * POR_PAGINA,
+  );
+
+  const reunionesSinRam = useMemo(
+    () => reuniones.filter((r) => !rams.some((x) => x.reunion_id === r.id)),
+    [reuniones, rams],
+  );
+
   if (cargando) return <Panel className="p-10 text-center">Cargando...</Panel>;
+
+  if (vista === "lista") {
+    return (
+      <div>
+        <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+          <Titulo>Asignaciones Mecánicas</Titulo>
+          <Boton onClick={() => setModalCrear(true)}>
+            <Plus size={16} className="mr-1" /> Nueva reunión
+          </Boton>
+        </div>
+
+        {ordenadas.length === 0 && (
+          <Panel className="p-8 text-center">
+            <p className="text-sm font-semibold">Todavía no hay asignaciones mecánicas armadas.</p>
+            <p className="mt-2 text-sm text-suave">
+              Usá el botón “Nueva reunión” para crear la primera.
+            </p>
+          </Panel>
+        )}
+
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {itemsPagina.map(({ ram: r, reunion }) => (
+            <div
+              key={r.reunion_id}
+              className="group relative cursor-pointer overflow-hidden rounded-xl border border-linea bg-tarjeta transition hover:shadow-lg"
+              onClick={() => abrirEditor(r.reunion_id)}
+            >
+              <div className="relative aspect-[4/3] overflow-hidden border-b border-linea bg-gray-100">
+                <iframe
+                  src={`/asignaciones-mecanicas/pdf/${r.reunion_id}`}
+                  className="pointer-events-none absolute left-0 top-0 h-[400%] w-[400%] origin-top-left scale-[0.25]"
+                  title="preview"
+                />
+                <a
+                  href={`/asignaciones-mecanicas/pdf/${r.reunion_id}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  onClick={(e) => e.stopPropagation()}
+                  className="absolute bottom-2 right-2 flex items-center gap-1 rounded-md bg-teal px-2 py-1 text-xs font-bold text-white shadow"
+                >
+                  <Eye size={12} /> Ver PDF
+                </a>
+              </div>
+              <div className="p-3">
+                <p className="text-sm font-bold">{reunion.titulo}</p>
+                <p className="text-xs text-suave">{reunion.fecha_inicio}</p>
+              </div>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  borrarRam(r.reunion_id);
+                }}
+                className="absolute right-2 top-2 rounded-full bg-rojo p-1.5 text-white shadow opacity-0 transition group-hover:opacity-100"
+                title="Borrar"
+              >
+                <Trash2 size={14} />
+              </button>
+            </div>
+          ))}
+        </div>
+
+        {totalPaginas > 1 && (
+          <div className="mt-6 flex items-center justify-center gap-2">
+            <Boton
+              variante="secundario"
+              onClick={() => setPagina((p) => Math.max(1, p - 1))}
+              disabled={paginaActual === 1}
+            >
+              Anterior
+            </Boton>
+            <span className="text-sm">
+              {paginaActual} / {totalPaginas}
+            </span>
+            <Boton
+              variante="secundario"
+              onClick={() => setPagina((p) => Math.min(totalPaginas, p + 1))}
+              disabled={paginaActual === totalPaginas}
+            >
+              Siguiente
+            </Boton>
+          </div>
+        )}
+
+        {modalCrear && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+            <Panel className="max-h-[80vh] w-full max-w-lg overflow-auto p-6">
+              <div className="mb-4 flex items-center justify-between">
+                <h2 className="text-lg font-bold">Nueva reunión mecánica</h2>
+                <button onClick={() => setModalCrear(false)} className="text-suave hover:text-teal">
+                  <ChevronLeft size={18} />
+                </button>
+              </div>
+              {reunionesSinRam.length === 0 ? (
+                <div className="text-center">
+                  <p className="text-sm text-suave">
+                    No hay reuniones sin asignación mecánica.
+                  </p>
+                  <Boton className="mt-4" onClick={() => router.push("/reunion")}>
+                    Ir a Vida y Ministerio
+                  </Boton>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {reunionesSinRam.map((r) => (
+                    <button
+                      key={r.id}
+                      onClick={() => crearRam(r.id)}
+                      className="w-full rounded-lg border border-linea bg-tarjeta2 p-3 text-left hover:border-teal"
+                    >
+                      <p className="font-bold">{r.titulo}</p>
+                      <p className="text-xs text-suave">{r.fecha_inicio}</p>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </Panel>
+          </div>
+        )}
+      </div>
+    );
+  }
 
   if (!reunionId || !ram) {
     return (
       <div>
         <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
           <Titulo>Asignaciones Este Las Heras</Titulo>
-          <Boton variante="secundario" onClick={irPdf} disabled={!reunionId}>
-            Generar PDF
+          <Boton variante="secundario" onClick={() => setVista("lista")}>
+            <ChevronLeft size={16} className="mr-1" /> Volver a la lista
           </Boton>
         </div>
         <Panel className="p-8 text-center">
-          <p className="text-sm font-semibold">
-            Todavía no hay ninguna reunión cargada.
-          </p>
-          <p className="mt-2 text-sm text-suave">
-            Las tareas mecánicas se cargan sobre una reunión. Creá una semana
-            (subiendo el PDF de la guía) y volvé a esta pantalla.
-          </p>
-          <Boton className="mt-4" onClick={() => router.push("/reunion")}>
-            Ir a Vida y Ministerio
-          </Boton>
+          <p className="text-sm font-semibold">No hay reunión seleccionada.</p>
         </Panel>
       </div>
     );
@@ -430,6 +579,9 @@ export default function AsignacionesMecanicasPage() {
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <Titulo>Asignaciones Este Las Heras</Titulo>
         <div className="flex gap-2">
+          <Boton variante="secundario" onClick={() => setVista("lista")}>
+            <ChevronLeft size={16} className="mr-1" /> Volver
+          </Boton>
           <Boton onClick={guardar} disabled={guardando}>
             Guardar
           </Boton>
