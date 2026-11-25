@@ -33,6 +33,7 @@ async function traerDatos() {
 }
 
 export default function PaginaGrupos() {
+  // ---------- todos los Hooks primero (mismo orden en cada render) ----------
   const [datos, setDatos] = useState<{
     grupos: Grupo[];
     participantes: Participante[];
@@ -45,6 +46,38 @@ export default function PaginaGrupos() {
   const [supIds, setSupIds] = useState<Record<number, string | null>>({});
   const [auxIds, setAuxIds] = useState<Record<number, string | null>>({});
 
+  // datos derivados: si datos es null, usamos arrays vacíos para que los
+  // useMemo siempre se ejecuten y mantengan el orden de hooks estable.
+  const grupos = useMemo(() => (datos ? datos.grupos : []), [datos]);
+  const participantes = useMemo(() => (datos ? datos.participantes : []), [
+    datos,
+  ]);
+
+  const mapaGrupos = useMemo(
+    () =>
+      grupos.reduce<Record<number, Grupo>>((acc, g) => {
+        acc[g.numero] = g;
+        return acc;
+      }, {}),
+    [grupos],
+  );
+
+  const ancianos = useMemo(
+    () =>
+      participantes.filter(
+        (p) => p.activo && tieneClasificacion(p, "ANCIANO"),
+      ),
+    [participantes],
+  );
+  const siervos = useMemo(
+    () =>
+      participantes.filter(
+        (p) => p.activo && tieneClasificacion(p, "SIERVO_MINISTERIAL"),
+      ),
+    [participantes],
+  );
+
+  // ---------- efectos secundarios ----------
   useEffect(() => {
     traerDatos().then((d) => {
       if (d.error) setMensaje({ texto: d.error, tipo: "error" });
@@ -62,30 +95,8 @@ export default function PaginaGrupos() {
     });
   }, []);
 
+  // ---------- render ----------
   if (!datos) return <Panel className="p-10 text-center">Cargando grupos…</Panel>;
-
-  const { grupos, participantes } = datos;
-
-  const mapaGrupos = useMemo(
-    () =>
-      grupos.reduce<Record<number, Grupo>>((acc, g) => {
-        acc[g.numero] = g;
-        return acc;
-      }, {}),
-    [grupos],
-  );
-
-  const ancianos = useMemo(
-    () => participantes.filter((p) => p.activo && tieneClasificacion(p, "ANCIANO")),
-    [participantes],
-  );
-  const siervos = useMemo(
-    () =>
-      participantes.filter(
-        (p) => p.activo && tieneClasificacion(p, "SIERVO_MINISTERIAL"),
-      ),
-    [participantes],
-  );
 
   const nombreDe = (id: string | null) =>
     id ? participantes.find((p) => p.id === id)?.nombre_completo || "—" : "—";
