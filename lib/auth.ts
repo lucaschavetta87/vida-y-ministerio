@@ -8,6 +8,7 @@ export const PERMISOS = [
   { codigo: "asignaciones", texto: "Asignaciones Mecánicas" },
   { codigo: "servicio", texto: "Servicio" },
   { codigo: "secretaria", texto: "Secretaría" },
+  { codigo: "grupos", texto: "Grupos de Predicación" },
 ] as const;
 
 export type Permiso = (typeof PERMISOS)[number]["codigo"];
@@ -19,6 +20,7 @@ export const PERMISO_DE_RUTA: Record<string, Permiso> = {
   "/asignaciones-mecanicas": "asignaciones",
   "/servicio": "servicio",
   "/secretaria": "secretaria",
+  "/grupos": "grupos",
 };
 
 /** Los que pueden administrar usuarios (solo la cuenta principal). */

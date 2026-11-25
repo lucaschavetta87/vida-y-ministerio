@@ -292,6 +292,7 @@ export default function PaginaParticipantes() {
        contacto_emergencia_nombre: datos.contacto_emergencia_nombre || null,
        contacto_emergencia_telefono: datos.contacto_emergencia_telefono || null,
        tipo_bautizado: datos.tipo_bautizado || "OTRAS_OVEJAS",
+       grupo: datos.grupo ?? null,
        es_publicador: datos.es_publicador !== false,
        activo: datos.activo,
      };
@@ -887,6 +888,7 @@ const COLUMNAS_NUEVAS = [
   "contacto_emergencia_telefono",
   "tipo_bautizado",
   "conductor_salidas_aprobado",
+  "grupo"
 ];
 
 function faltaColumnaNueva(mensaje: string): boolean {

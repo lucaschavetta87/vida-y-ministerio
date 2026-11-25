@@ -71,6 +71,8 @@ export interface Participante {
   conductor_salidas_aprobado?: boolean;
   /** Tildado = llena el informe de actividad y aparece en Secretaría. */
   es_publicador?: boolean;
+  /** Grupo de predicación al que pertenece (1..6). */
+  grupo?: number | null;
   activo: boolean;
   /**
    * Año de servicio en el que arranca la ficha (2025 = sept 2025 a ago 2026).
@@ -78,6 +80,13 @@ export interface Participante {
    */
   anio_servicio_inicio?: number | null;
   created_at?: string;
+}
+
+export interface Grupo {
+  numero: number;
+  superintendente_id: string | null;
+  auxiliar_id: string | null;
+  actualizado_en?: string;
 }
 
 export interface Rol {

@@ -33,5 +33,6 @@ export const config = {
     "/mi-perfil/:path*",
     "/mi-espacio/:path*",
     "/usuarios/:path*",
+    "/grupos/:path*",
   ],
 };

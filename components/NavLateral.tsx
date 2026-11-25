@@ -12,6 +12,7 @@ import {
   X,
   MapPin,
   KeyRound,
+  UserCircle,
 } from "lucide-react";
 import Salir from "@/components/Salir";
 import { cn } from "@/lib/utils";
@@ -48,6 +49,12 @@ const enlaces = [
     texto: "Usuarios",
     Icono: KeyRound,
     permiso: "usuarios",
+  },
+  {
+    href: "/grupos",
+    texto: "Grupos de Predicación",
+    Icono: UserCircle,
+    permiso: "grupos",
   },
   { href: "/mi-espacio", texto: "Mi espacio", Icono: KeyRound, permiso: "mi" },
 ] as const;

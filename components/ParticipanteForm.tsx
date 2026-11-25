@@ -400,6 +400,22 @@ export default function ParticipanteForm({
                 />
               </Campo>
 
+              <Campo label="Grupo de predicación">
+                <Select
+                  value={String(ficha.grupo || "")}
+                  onChange={(e) =>
+                    set("grupo", e.target.value === "" ? null : Number(e.target.value))
+                  }
+                >
+                  <option value="">Sin grupo</option>
+                  {[1, 2, 3, 4, 5, 6].map((n) => (
+                    <option key={n} value={n}>
+                      Grupo {n}
+                    </option>
+                  ))}
+                </Select>
+              </Campo>
+
               <Campo label="Si está casado - Cónyuge">
                 <Select
                   value={ficha.conyuge_id || ""}

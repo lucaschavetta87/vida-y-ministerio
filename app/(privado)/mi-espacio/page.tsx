@@ -13,7 +13,7 @@ import MapaTerritorios from "@/components/MapaTerritorios";
 import PaginaPdfReunion from "@/app/(privado)/reunion/pdf/[id]/page";
 import PdfAsignacionesMecanicas from "@/app/(privado)/asignaciones-mecanicas/pdf/[reunionId]/page";
 import { estadoDeTerritorios, type Territorio } from "@/lib/territorios";
-import type { Participante } from "@/lib/tipos";
+import type { Grupo, Participante } from "@/lib/tipos";
 
 export default function MiEspacioPage() {
   const [participante, setParticipante] = useState<Participante | null>(null);
@@ -30,6 +30,9 @@ export default function MiEspacioPage() {
   const [guardandoMenor, setGuardandoMenor] = useState(false);
   const [esAcomodador, setEsAcomodador] = useState(false);
   const [mostrarAsistencia, setMostrarAsistencia] = useState(false);
+  const [grupoActual, setGrupoActual] = useState<Grupo | null>(null);
+  const [nombreSuperintendente, setNombreSuperintendente] = useState<string | null>(null);
+  const [nombreAuxiliar, setNombreAuxiliar] = useState<string | null>(null);
 
   const [mesInforme, setMesInforme] = useState(mesAnterior());
   const [informe, setInforme] = useState<Informe | null>(null);
@@ -97,6 +100,47 @@ export default function MiEspacioPage() {
       cancelado = true;
     };
   }, [participante, mesInforme]);
+
+  /** Cargar el grupo del participante y los nombres de su superintendente y auxiliar. */
+  useEffect(() => {
+    if (!participante?.grupo) {
+      setGrupoActual(null);
+      setNombreSuperintendente(null);
+      setNombreAuxiliar(null);
+      return;
+    }
+    let cancelado = false;
+    supabase
+      .from("grupos")
+      .select("*")
+      .eq("numero", participante.grupo)
+      .maybeSingle()
+      .then(({ data, error }) => {
+        if (cancelado || error) return;
+        const g = data as Grupo | null;
+        setGrupoActual(g || null);
+        const ids = [g?.superintendente_id, g?.auxiliar_id].filter(Boolean) as string[];
+        if (ids.length) {
+          supabase
+            .from("participantes")
+            .select("id, nombre_completo")
+            .in("id", ids)
+            .then(({ data: ps }) => {
+              if (cancelado) return;
+              const mapa = (ps as { id: string; nombre_completo: string }[] || []).reduce(
+                (acc, x) => { acc[x.id] = x.nombre_completo; return acc; },
+                {} as Record<string, string>,
+              );
+              setNombreSuperintendente(mapa[g!.superintendente_id!] || null);
+              setNombreAuxiliar(mapa[g!.auxiliar_id!] || null);
+            });
+        } else {
+          setNombreSuperintendente(null);
+          setNombreAuxiliar(null);
+        }
+      });
+    return () => { cancelado = true; };
+  }, [participante?.grupo]);
 
   useEffect(() => {
     const hoy = new Date().toISOString().slice(0, 10);
@@ -231,6 +275,36 @@ export default function MiEspacioPage() {
           <Boton onClick={() => setEditandoInforme(true)}>Cargar mi informe</Boton>
         )}
       </Panel>
+
+      {grupoActual && (
+        <Panel className="p-6">
+          <h2 className="mb-3 text-lg font-bold">Mi grupo</h2>
+          <div className="flex items-start gap-4">
+            <div className="rounded-xl border border-linea bg-tarjeta2 px-4 py-3">
+              <span className="text-[11px] font-black tracking-widest text-suave uppercase">
+                Grupo {grupoActual.numero}
+              </span>
+            </div>
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold text-suave uppercase">Superintendente</span>
+                <span className="text-sm">
+                  {nombreSuperintendente || "—"}
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold text-suave uppercase">Auxiliar</span>
+                <span className="text-sm">
+                  {nombreAuxiliar || "—"}
+                </span>
+              </div>
+            </div>
+          </div>
+          <p className="mt-2 text-xs text-suave">
+            Preguntale a tu superintendente o auxiliar si tenés dudas del grupo.
+          </p>
+        </Panel>
+      )}
 
       {esAcomodador && (
         <Panel className="p-6">
