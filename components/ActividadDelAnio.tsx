@@ -169,7 +169,12 @@ export default function ActividadDelAnio({
 
   const resumen = useMemo(() => {
     const horas = informes.reduce((s, i) => s + (i.horas ?? 0), 0);
-    const estudios = informes.reduce((s, i) => s + (i.estudios_biblicos ?? 0), 0);
+    // Estudios bíblicos: solo el valor del último mes informado (no suma entre meses).
+    const ultimoInforme = [...informes]
+      .filter((i) => i.mes)
+      .sort((a, b) => (a.mes || "").localeCompare(b.mes || ""))
+      .pop();
+    const estudios = ultimoInforme ? (ultimoInforme.estudios_biblicos ?? 0) : 0;
     const precursores = filas.filter((f) => f.informe?.tipo === "PRECURSOR").length;
     const auxiliares = filas.filter((f) => f.informe?.tipo === "AUXILIAR").length;
     return { horas, estudios, meses: mesesInformados, precursores, auxiliares };
