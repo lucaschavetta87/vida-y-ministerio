@@ -83,7 +83,7 @@ export async function POST(request: Request) {
     httpOnly: true,
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",
-    // sin maxAge: es cookie de sesión, al cerrar el navegador se cae
+    maxAge: SESSION_DURACION_SEG,
     path: "/",
   });
   return response;

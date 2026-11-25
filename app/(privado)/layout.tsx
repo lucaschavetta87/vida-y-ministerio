@@ -1,7 +1,7 @@
 import { cookies } from "next/headers";
 import { SESSION_COOKIE, leerToken } from "@/lib/auth";
 import NavLateral from "@/components/NavLateral";
-import CerrarAlSalir from "@/components/CerrarAlSalir";
+
 
 /** Todo lo interno de la congregación: siempre con menú lateral y sesión abierta. */
 export default async function LayoutPrivado({ children }: { children: React.ReactNode }) {
@@ -11,8 +11,6 @@ export default async function LayoutPrivado({ children }: { children: React.Reac
   return (
     <>
       <NavLateral sesion={sesion} />
-      <CerrarAlSalir />
-
       <div className="contenedor lg:pl-60">
         <main className="mx-auto w-full max-w-6xl px-4 py-8">{children}</main>
 
