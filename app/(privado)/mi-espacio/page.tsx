@@ -402,9 +402,9 @@ export default function MiEspacioPage() {
 
       <Panel className="p-6">
         <h2 className="mb-3 text-lg font-bold">Salidas de territorio (esta semana)</h2>
-        {salidas.length === 0 ? (
+        {salidas.length === 0 && !archivoActual ? (
           <p className="text-sm text-suave">Salidas no cargadas.</p>
-        ) : (
+        ) : salidas.length > 0 ? (
           <ul className="space-y-2 text-sm">
             {salidas.map((s) => (
               <li key={s.id} className="rounded-lg border border-linea bg-tarjeta2 px-3 py-2">
@@ -412,7 +412,7 @@ export default function MiEspacioPage() {
               </li>
             ))}
           </ul>
-        )}
+        ) : null}
         {archivoActual && (
           <div className="mt-4 overflow-hidden rounded-xl border border-linea bg-white p-2">
             {/\.(jpg|jpeg|png|gif|webp)$/i.test(archivoActual) ? (
