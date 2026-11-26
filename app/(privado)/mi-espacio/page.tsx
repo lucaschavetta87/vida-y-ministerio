@@ -388,15 +388,6 @@ export default function MiEspacioPage() {
             <div className="overflow-x-auto rounded-xl border border-linea bg-white p-2" style={{ WebkitOverflowScrolling: "touch" }}>
               <PdfAsignacionesMecanicas reunionId={reunionActual.id} soloLectura />
             </div>
-            {archivoActual && (
-              <div className="overflow-hidden rounded-xl border border-linea bg-white p-2">
-                {/\.(jpg|jpeg|png|gif|webp)$/i.test(archivoActual) ? (
-                  <img src={archivoActual} alt="Salida de servicio" className="h-[600px] w-full object-contain" />
-                ) : (
-                  <iframe src={archivoActual} className="h-[600px] w-full" title="Salida de servicio" />
-                )}
-              </div>
-            )}
           </div>
         ) : (
           <p className="text-sm text-suave">No hay reunión para esta semana.</p>
@@ -421,6 +412,15 @@ export default function MiEspacioPage() {
               </li>
             ))}
           </ul>
+        )}
+        {archivoActual && (
+          <div className="mt-4 overflow-hidden rounded-xl border border-linea bg-white p-2">
+            {/\.(jpg|jpeg|png|gif|webp)$/i.test(archivoActual) ? (
+              <img src={archivoActual} alt="Salida de servicio" className="h-[600px] w-full object-contain" />
+            ) : (
+              <iframe src={archivoActual} className="h-[600px] w-full" title="Salida de servicio" />
+            )}
+          </div>
         )}
       </Panel>
 
