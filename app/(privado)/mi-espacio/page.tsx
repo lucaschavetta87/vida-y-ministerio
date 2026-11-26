@@ -9,7 +9,7 @@ import FormularioAsistencia from "@/components/FormularioAsistencia";
 import { supabase } from "@/lib/supabase";
 import { etiquetaMes, mesAnterior, type Informe } from "@/lib/informes";
 import ActividadDelAnio from "@/components/ActividadDelAnio";
-import MapaTerritorios from "@/components/MapaTerritorios";
+import MapaTerritorioPdf from "@/components/MapaTerritorioPdf";
 import PaginaPdfReunion from "@/app/(privado)/reunion/pdf/[id]/page";
 import PdfAsignacionesMecanicas from "@/app/(privado)/asignaciones-mecanicas/pdf/[reunionId]/page";
 import { estadoDeTerritorios, type Territorio } from "@/lib/territorios";
@@ -405,7 +405,7 @@ export default function MiEspacioPage() {
 
       <Panel className="p-6">
         <h2 className="mb-3 text-lg font-bold">Mapa de territorios (solo lectura)</h2>
-        <MapaTerritorios territorios={territorios} colores={colores} />
+        <MapaTerritorioPdf />
         <p className="mt-2 text-xs text-suave">Vista general de territorios.</p>
       </Panel>
 
