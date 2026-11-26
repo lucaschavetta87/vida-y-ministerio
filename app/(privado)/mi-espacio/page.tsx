@@ -385,7 +385,7 @@ export default function MiEspacioPage() {
             <div className="overflow-hidden rounded-xl border border-linea bg-white p-2">
               <PaginaPdfReunion reunionId={reunionActual.id} soloLectura />
             </div>
-            <div className="overflow-hidden rounded-xl border border-linea bg-white p-2">
+            <div className="overflow-x-auto rounded-xl border border-linea bg-white p-2" style={{ WebkitOverflowScrolling: "touch" }}>
               <PdfAsignacionesMecanicas reunionId={reunionActual.id} soloLectura />
             </div>
             {archivoActual && (
