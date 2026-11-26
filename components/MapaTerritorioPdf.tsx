@@ -4,9 +4,9 @@ import { useEffect, useRef, useState } from "react";
 import { Loader2, Maximize2, Minus, Plus } from "lucide-react";
 import * as pdfjsLib from "pdfjs-dist";
 
-// Configurar el worker de pdf.js (CDN)
+// Configurar el worker de pdf.js (local, más rápido)
 if (typeof window !== "undefined") {
-  pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
+  pdfjsLib.GlobalWorkerOptions.workerSrc = "/pdf.worker.min.mjs";
 }
 
 const ZOOM_MIN = 1;
@@ -27,33 +27,56 @@ export default function MapaTerritorioPdf() {
   const arrastre = useRef<{ x: number; y: number; ox: number; oy: number } | null>(null);
 
   useEffect(() => {
+    let cancelado = false;
+    let renderTask: { promise: Promise<void>; cancel: () => void } | null = null;
+
     const cargar = async () => {
       try {
         const pdf = await pdfjsLib.getDocument("/mapa-territorio.pdf").promise;
+        if (cancelado) return;
         const page = await pdf.getPage(1);
-        const viewport = page.getViewport({ scale: 2 });
+        if (cancelado) return;
+        const viewport = page.getViewport({ scale: 1.5 });
 
-        setAspectRatio(`${viewport.width} / ${viewport.height}`);
+        if (!cancelado) {
+          setAspectRatio(`${viewport.width} / ${viewport.height}`);
+        }
 
         const canvasEl = canvas.current;
-        if (!canvasEl) return;
+        if (!canvasEl || cancelado) return;
         const ctx = canvasEl.getContext("2d");
-        if (!ctx) return;
+        if (!ctx || cancelado) return;
 
         canvasEl.width = viewport.width;
         canvasEl.height = viewport.height;
 
-        await page.render({ canvasContext: ctx, viewport }).promise;
+        renderTask = page.render({ canvasContext: ctx, viewport });
+        await renderTask.promise;
+        if (cancelado) return;
+
         setListo(true);
 
         // Centrar al cargar
         const l = limites(1, caja.current, canvasEl);
         setDesplazamiento({ x: l.centroX, y: l.centroY });
       } catch (e) {
-        console.error("Error cargando el mapa PDF:", e);
+        if (!cancelado) {
+          console.error("Error cargando el mapa PDF:", e);
+        }
       }
     };
     cargar();
+
+    return () => {
+      cancelado = true;
+      if (renderTask) {
+        try {
+          renderTask.cancel();
+        } catch {
+          // ignorar errores de cancelación
+        }
+      }
+    };
   }, []);
 
   /* ---------------- zoom y desplazamiento ---------------- */
