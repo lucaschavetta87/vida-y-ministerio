@@ -33,6 +33,11 @@ export default function MiEspacioPage() {
   const [grupoActual, setGrupoActual] = useState<Grupo | null>(null);
   const [nombreSuperintendente, setNombreSuperintendente] = useState<string | null>(null);
   const [nombreAuxiliar, setNombreAuxiliar] = useState<string | null>(null);
+  // Solo para superintendente o auxiliar del grupo
+  const [esSuperOAux, setEsSuperOAux] = useState(false);
+  const [integrantesGrupo, setIntegrantesGrupo] = useState<Participante[]>([]);
+  const [informesGrupo, setInformesGrupo] = useState<any[]>([]);
+  const [marcasGrupo, setMarcasGrupo] = useState<any[]>([]);
 
   const [mesInforme, setMesInforme] = useState(mesAnterior());
   const [informe, setInforme] = useState<Informe | null>(null);
@@ -141,6 +146,61 @@ export default function MiEspacioPage() {
       });
     return () => { cancelado = true; };
   }, [participante?.grupo]);
+
+  /** Si el usuario es superintendente o auxiliar de su grupo, cargar datos de informes del grupo. */
+  useEffect(() => {
+    if (!participante?.grupo || !grupoActual) {
+      setEsSuperOAux(false);
+      setIntegrantesGrupo([]);
+      setInformesGrupo([]);
+      setMarcasGrupo([]);
+      return;
+    }
+    const esSuper = grupoActual.superintendente_id === participante.id;
+    const esAux = grupoActual.auxiliar_id === participante.id;
+    if (!esSuper && !esAux) {
+      setEsSuperOAux(false);
+      setIntegrantesGrupo([]);
+      setInformesGrupo([]);
+      setMarcasGrupo([]);
+      return;
+    }
+    setEsSuperOAux(true);
+    const mes = mesAnterior();
+    let cancelado = false;
+    const cargar = async () => {
+      const { data: ints } = await supabase
+        .from("participantes")
+        .select("*")
+        .eq("grupo", participante.grupo);
+      if (cancelado) return;
+      const integrantes = (ints as Participante[]) || [];
+      setIntegrantesGrupo(integrantes);
+      const ids = integrantes.map((p) => p.id);
+      if (ids.length) {
+        const [inf, marc] = await Promise.all([
+          supabase
+            .from("informes")
+            .select("*")
+            .in("participante_id", ids)
+            .eq("mes", mes),
+          supabase
+            .from("marcas_informe")
+            .select("*")
+            .in("participante_id", ids)
+            .eq("mes", mes),
+        ]);
+        if (cancelado) return;
+        setInformesGrupo((inf.data as any[]) || []);
+        setMarcasGrupo((marc.data as any[]) || []);
+      } else {
+        setInformesGrupo([]);
+        setMarcasGrupo([]);
+      }
+    };
+    cargar();
+    return () => { cancelado = true; };
+  }, [participante, grupoActual]);
 
   useEffect(() => {
     const hoy = new Date().toISOString().slice(0, 10);
@@ -303,6 +363,71 @@ export default function MiEspacioPage() {
           <p className="mt-2 text-xs text-suave">
             Preguntale a tu superintendente o auxiliar si tenés dudas del grupo.
           </p>
+        </Panel>
+      )}
+
+      {esSuperOAux && integrantesGrupo.length > 0 && (
+        <Panel className="p-6">
+          <h2 className="mb-3 text-lg font-bold text-center">Mi grupo — Informes del mes</h2>
+          {(() => {
+            const mes = mesAnterior();
+            const idsInformaron = new Set([
+              ...informesGrupo.map((i: any) => i.participante_id),
+              ...marcasGrupo.map((m: any) => m.participante_id),
+            ]);
+            const noInformaron = integrantesGrupo.filter((p) => !idsInformaron.has(p.id));
+            const precursoresRegulares = integrantesGrupo.filter((p) =>
+              (p.clasificacion || []).includes("PRECURSOR_REGULAR"),
+            );
+            const auxiliaresIds = new Set(
+              informesGrupo
+                .filter((i: any) => i.tipo === "AUXILIAR")
+                .map((i: any) => i.participante_id),
+            );
+            const precursoresAuxiliares = integrantesGrupo.filter((p) => auxiliaresIds.has(p.id));
+
+            return (
+              <div className="flex flex-col gap-4 text-center">
+                <div>
+                  <span className="text-xs font-black tracking-widest text-suave uppercase block mb-1">
+                    Estado de informes ({mes})
+                  </span>
+                  {noInformaron.length === 0 ? (
+                    <p className="text-sm text-verde font-semibold">
+                      Todos los integrantes informaron ✓
+                    </p>
+                  ) : (
+                    <p className="text-sm text-rojo">
+                      Faltan informar:{" "}
+                      <span className="font-semibold">
+                        {noInformaron.map((p) => p.nombre_completo).join(", ")}
+                      </span>
+                    </p>
+                  )}
+                </div>
+                {precursoresRegulares.length > 0 && (
+                  <div>
+                    <span className="text-xs font-black tracking-widest text-suave uppercase block mb-1">
+                      Precursores regulares del grupo
+                    </span>
+                    <p className="text-sm">
+                      {precursoresRegulares.map((p) => p.nombre_completo).join(", ")}
+                    </p>
+                  </div>
+                )}
+                {precursoresAuxiliares.length > 0 && (
+                  <div>
+                    <span className="text-xs font-black tracking-widest text-suave uppercase block mb-1">
+                      Precursores auxiliares este mes
+                    </span>
+                    <p className="text-sm">
+                      {precursoresAuxiliares.map((p) => p.nombre_completo).join(", ")}
+                    </p>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
         </Panel>
       )}
 
